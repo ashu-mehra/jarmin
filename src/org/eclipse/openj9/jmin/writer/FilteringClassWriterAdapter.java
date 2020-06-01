@@ -1,0 +1,56 @@
+package org.eclipse.openj9.jmin.writer;
+
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.MethodVisitor;
+
+import static org.objectweb.asm.Opcodes.ASM8;
+
+import org.eclipse.openj9.jmin.info.ReferenceInfo;
+
+public class FilteringClassWriterAdapter extends ClassVisitor {
+    private String clazz;
+    private String mode;
+    private ReferenceInfo info;
+
+    public FilteringClassWriterAdapter(String mode, ReferenceInfo info, final ClassVisitor next) {
+        super(ASM8, next);
+        this.mode = mode;
+        this.info = info;
+    }
+
+    @Override
+    public void visit(
+        final int version,
+        final int access,
+        final String name,
+        final String signature,
+        final String superName,
+        final String[] interfaces) {
+        clazz = name;
+        if (cv != null) {
+        cv.visit(version, access, name, signature, superName, interfaces);
+        }
+    }
+    @Override
+    public MethodVisitor visitMethod(int access, java.lang.String name, java.lang.String descriptor, java.lang.String signature, java.lang.String[] exceptions) {
+        if (cv != null
+            && (mode.equals("class") || (info.isClassReferenced(clazz) && info.getClassInfo(clazz).isMethodReferenced(name, descriptor)))) {
+            return cv.visitMethod(access, name, descriptor, signature, exceptions);
+        }
+        return null;
+    }
+    @Override
+    public FieldVisitor visitField(
+        final int access,
+        final String name,
+        final String descriptor,
+        final String signature,
+        final Object value) {
+        if (cv != null
+            && (mode.equals("class") || mode.equals("method") || (info.isClassReferenced(clazz) && info.getClassInfo(clazz).isFieldReferenced(name, descriptor)))) {
+        return cv.visitField(access, name, descriptor, signature, value);
+        }
+        return null;
+    }
+}

@@ -1,0 +1,35 @@
+package org.eclipse.openj9.jmin.analysis;
+
+import org.objectweb.asm.tree.analysis.BasicValue;
+
+public class ClassValue extends BasicValue {
+    private String name;
+    
+    public ClassValue(String name) {
+        super(null);
+        this.name = name;
+    }
+    
+    public ClassValue(ClassValue v) {
+        super(null);
+        this.name = new String(v.getName());
+    }
+    
+    public String getName() {
+        return name;
+    }
+        
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        if (o instanceof ClassValue) {
+            String oname = ((ClassValue)o).name;
+            return (name == null && oname == null) || (oname != null && oname.equals(name));
+        }
+        return false;
+    }
+}
