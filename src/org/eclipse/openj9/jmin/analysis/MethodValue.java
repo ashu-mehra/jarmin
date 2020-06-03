@@ -2,6 +2,14 @@ package org.eclipse.openj9.jmin.analysis;
 
 import org.objectweb.asm.tree.analysis.BasicValue;
 
+/**
+ * Represents an instance of <code>java/lang/reflect/Method</code>.
+ * 
+ * The named method is an exact match - eg the reflection object will refer
+ * specifically to the named class and method. If the method is invoked on
+ * a receiver then usual virtual dispatch or interface dispatch rules will
+ * apply and could dispatch to an override of the named method.
+ */
 public class MethodValue extends BasicValue {
     private String clazz;
     private String name;
@@ -9,8 +17,6 @@ public class MethodValue extends BasicValue {
     
     public MethodValue(String clazz, String name, String desc) {
         super(null);
-        if (clazz.equals("com.arjuna.ats.internal.jta.Implementationsx"))
-        throw new RuntimeException();
         this.clazz = clazz;
         this.name = name;
         this.desc = desc;

@@ -10,6 +10,7 @@ public class ClassInfo {
     private final HashMap<String, FieldInfo> fieldInfo;
     private final HashSet<String> annotations;
     boolean referenced;
+    boolean instantiated;
     public ClassInfo(String name) {
         this.name = name;
         this.methodInfo = new HashMap<String, MethodInfo>();
@@ -22,7 +23,7 @@ public class ClassInfo {
     public MethodInfo addMethod(String name, String desc) {
         String key = methodKey(name, desc);
         if (!methodInfo.containsKey(key)) {
-            methodInfo.put(key, new MethodInfo(name, desc));
+            methodInfo.put(key, new MethodInfo(this.name, name, desc));
         }
         return methodInfo.get(key);
     }
@@ -34,6 +35,12 @@ public class ClassInfo {
     }
     public boolean isReferenced() {
         return referenced;
+    }
+    public void setInstantiated() {
+        instantiated = true;
+    }
+    public boolean isInstantiated() {
+        return instantiated;
     }
     private String fieldKey(String name, String desc) {
         return name + desc;
@@ -73,14 +80,14 @@ public class ClassInfo {
     public void markMethodReferenced(String name, String desc) {
         String key = methodKey(name, desc);
         if (!methodInfo.containsKey(key)) {
-            methodInfo.put(key, new MethodInfo(name, desc));
+            methodInfo.put(key, new MethodInfo(this.name, name, desc));
         }
         methodInfo.get(key).setReferenced();
     }
     public void markMethodProcessed(String name, String desc) {
         String key = methodKey(name, desc);
         if (!methodInfo.containsKey(key)) {
-            methodInfo.put(key, new MethodInfo(name, desc));
+            methodInfo.put(key, new MethodInfo(this.name, name, desc));
         }
         methodInfo.get(key).setProcessed();
     }

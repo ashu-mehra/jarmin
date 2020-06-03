@@ -2,6 +2,12 @@ package org.eclipse.openj9.jmin.analysis;
 
 import org.objectweb.asm.tree.analysis.BasicValue;
 
+/**
+ * Represents a constant string value propagating through the program.
+ * 
+ * The StringValue can have a null contents which represents a String object that has not
+ * had its contents set yet.
+ */
 public class StringValue extends BasicValue {
     private String contents;
     

@@ -40,6 +40,11 @@ import static org.objectweb.asm.Opcodes.ASM8;
 import jdk.internal.org.objectweb.asm.Opcodes;
 
 public class JMin {
+    public static final String REDUCTION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.reduction_mode";
+    public static final String INCLUSION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.inclusion_mode";
+    public static final String TRACE_PROPERTY_NAME = "org.eclipse.openj9.jmin.trace";
+    private String reductionMode;
+    private boolean trace;
     private String[] jars;
     private HierarchyContext context;
     private WorkList worklist;
@@ -75,7 +80,8 @@ public class JMin {
         "java/net/URI",
         "java/lang/reflect/Constructor"
     };
-    private static Class<?>[] preprocessorClasses = new Class[] { 
+    private static Class<?>[] preprocessorClasses = new Class[] {
+        org.eclipse.openj9.jmin.plugins.QuarkusPreProcessor.class,
         org.eclipse.openj9.jmin.plugins.CaffeinePreProcessor.class,
         org.eclipse.openj9.jmin.plugins.HibernatePreProcessor.class,
         org.eclipse.openj9.jmin.plugins.ArjunaPreProcessor.class
@@ -94,10 +100,16 @@ public class JMin {
     private ClassVisitor processors;
     
     public JMin(String[] jars, String clazz, String method, String signature) throws IOException {
+        this.reductionMode = System.getProperty(REDUCTION_MODE_PROPERTY_NAME);
+        if (this.reductionMode == null) {
+            this.reductionMode = "class";
+        }
+        String traceMode = System.getProperty(TRACE_PROPERTY_NAME);
+        trace = traceMode != null && traceMode.equalsIgnoreCase("true");
         this.jars = jars.clone();
         context = new HierarchyContext();
         info = new ReferenceInfo();
-        worklist = new WorkList(info, context);
+        worklist = new WorkList(this.reductionMode, info, context);
         
         processors = null;
         for (Class<?> proc : processorClasses) {
@@ -110,6 +122,33 @@ public class JMin {
                 throw new RuntimeException(e);
             }
         }
+        ClassVisitor annotationProcessor = new ClassVisitor(ASM8, null) {
+            private String clazzName;
+            @Override
+            public void visit(int version, int access, java.lang.String name, java.lang.String signature,
+                              java.lang.String superName, java.lang.String[] interfaces) {
+                clazzName = name;
+            }
+            @Override
+            public AnnotationVisitor visitAnnotation(final String descriptor, final boolean visible) {
+                AnnotationVisitor inner = cv != null ? cv.visitAnnotation(descriptor, visible) : null;
+                if (descriptor.equals("Ljava/lang/annotation/Retention;")) {
+                    return new AnnotationVisitor(ASM8, inner) {
+                        @Override
+                        public void visitEnum(final String name, final String descriptor,
+                                final String value) {
+                            if (av != null) {
+                                av.visitEnum(name, descriptor, value);
+                            }
+                            if (name.equals("value") && value.equals("RUNTIME")) {
+                                context.addRuntimeAnnotation(clazzName);
+                            }
+                        }
+                    };
+                }
+                return null;
+            }
+        };
         for (String jar : jars) {
             JarInputStream jin = new JarInputStream(new FileInputStream(jar));
             ZipEntry ze = jin.getNextEntry();
@@ -128,45 +167,9 @@ public class JMin {
                     }
                     context.addSuperClass(clazzName, cr.getSuperName());
                     context.addInterfaces(clazzName, cr.getInterfaces());
-                    /*cr.accept(new ClassVisitor (ASM8, null) {
-                        @Override
-                        public void visit(
-                            final int version,
-                            final int access,
-                            final String name,
-                            final String signature,
-                            final String superName,
-                            final String[] interfaces) {
-                        }
-                        @Override
-                        public MethodVisitor visitMethod(int access, String name, String desc,
-                                String signature, String[] exceptions) {
-                            info.addClass(clazzName).addMethod(name, desc);
-                            return null;
-                        }
-                    }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_CODE | ClassReader.SKIP_FRAMES);*/
+                    
                     if ((cr.getAccess() & Opcodes.ACC_ANNOTATION) != 0) {
-                        cr.accept(new ClassVisitor(ASM8, null) {
-                            @Override
-                            public AnnotationVisitor visitAnnotation(final String descriptor, final boolean visible) {
-                                AnnotationVisitor inner = cv != null ? cv.visitAnnotation(descriptor, visible) : null;
-                                if (descriptor.equals("Ljava/lang/annotation/Retention;")) {
-                                    return new AnnotationVisitor(ASM8, inner) {
-                                        @Override
-                                        public void visitEnum(final String name, final String descriptor,
-                                                final String value) {
-                                            if (av != null) {
-                                                av.visitEnum(name, descriptor, value);
-                                            }
-                                            if (name.equals("value") && value.equals("RUNTIME")) {
-                                                context.addRuntimeAnnotation(clazzName);
-                                            }
-                                        }
-                                    };
-                                }
-                                return null;
-                            }
-                        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_CODE | ClassReader.SKIP_FRAMES);
+                        cr.accept(annotationProcessor, ClassReader.SKIP_DEBUG | ClassReader.SKIP_CODE | ClassReader.SKIP_FRAMES);
                     }
                 } else if (!ze.isDirectory() && entryName.startsWith("META-INF/services/")) {
                     System.out.println("Found service entry " + entryName);
@@ -268,7 +271,7 @@ public class JMin {
         jout.closeEntry();
     }
 
-    public void minimizeJars(String mode) throws IOException {
+    public void minimizeJars() throws IOException {
         int classCount = 0;
         HashSet<String> jarsToProcess = new HashSet<String>();
         for (String clazz : context.seenClasses()) {
@@ -301,13 +304,13 @@ public class JMin {
                 if (isWhitelisted
                     || !entry.getName().endsWith(".class")
                     || entry.getName().equals("class-info.class")
-                    || (mode.equals("class") && info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6)))) {
-                    if (entry.getName().endsWith(".class") && !entry.getName().equals("class-info.class") && (mode.equals("class") && info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6)))) {
+                    || (reductionMode.equals("class") && info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6)))) {
+                    if (entry.getName().endsWith(".class") && !entry.getName().equals("class-info.class") && (reductionMode.equals("class") && info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6)))) {
                         classCount++;
                     }
                     copyFile(jin, jout, buffer, entry);
                 } else if (entry.getName().endsWith(".class") 
-                           && (mode.equals("method") || mode.equals("field") || mode.equals("class")) 
+                           && (reductionMode.equals("method") || reductionMode.equals("field") || reductionMode.equals("class")) 
                            && info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6))) {
                     classCount++;
                     BufferedInputStream bis = new BufferedInputStream(jin);
@@ -316,7 +319,7 @@ public class JMin {
                             bis.mark((int)(entry.getSize() * 2) + 1);
                             ClassReader cr = new ClassReader(bis);
                             ClassWriter cw = new NonLoadingClassWriter(context, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-                            cr.accept(new FilteringClassWriterAdapter(mode, info, cw), 0);
+                            cr.accept(new FilteringClassWriterAdapter(reductionMode, info, cw), 0);
                             ZipEntry newEntry = new ZipEntry(entry.getName());
                             jout.putNextEntry(newEntry);
                             jout.write(cw.toByteArray());
@@ -340,6 +343,8 @@ public class JMin {
     }
 
     private void populateWorklist() throws IOException {
+        worklist.instantiateClass("java/lang/J9VMInternals");
+        worklist.instantiateClass("java/lang/J9VMInternals$ClassInitializationLock");
         worklist.processMethod("java/lang/J9VMInternals", "completeInitialization", "()V");
         worklist.processMethod("java/lang/J9VMInternals", "initialize", "(Ljava/lang/Class;)V");
         worklist.processMethod("java/lang/J9VMInternals$ClassInitializationLock", "<init>", "()V");
@@ -376,6 +381,27 @@ public class JMin {
         }
         minfo.setProcessed();
 
+        for (FieldSite field : minfo.getReferencedFields()) {
+            if (field.desc.charAt(0) == 'L') {
+                worklist.processClass(field.desc.substring(1, field.desc.length() - 1));
+            }
+            worklist.processField(field.clazz, field.name, field.desc);
+        }
+
+        for (String init : minfo.getInstantiatedClasses()) {
+            worklist.instantiateClass(init);
+        }
+
+        for (String clazz : minfo.getReferencedClasses()) {
+            worklist.processClass(clazz);
+        }
+
+        for (String annot : minfo.getAnnotations()) {
+            if (context.hasRuntimeAnnotation(annot)) {
+                worklist.instantiateClass(annot);
+            }
+        }
+
         for (CallSite call : minfo.getCallSites()) {
             HashSet<String> descs = new HashSet<String>();
             if (call.desc.equals("*")) {
@@ -406,44 +432,22 @@ public class JMin {
                 }
             }
         }
-
-        for (FieldSite field : minfo.getReferencedFields()) {
-            worklist.processField(field.clazz, field.name, field.desc);
-        }
-
-        for (String clazz : minfo.getReferencedClasses()) {
-            worklist.processClass(clazz);
-        }
-
-        for (String annot : minfo.getAnnotations()) {
-            if (context.hasRuntimeAnnotation(annot)) {
-                worklist.processClass(annot);
-            }
-        }
     }
 
     protected void processEntry() {
         WorkItem entry = worklist.next();
-        System.out.print("Process " + entry.toString());
         ClassInfo cinfo = info.getClassInfo(entry.clazz);
-        if (cinfo == null) {
-            System.out.println(" - class not found");
-            return;
-        }
-        
-        if (!cinfo.isReferenced()) {
-            System.out.println();
-            return;
-        }
-
-        if (!cinfo.hasMethod(entry.name, entry.desc)) {
-            System.out.println(" - not found");
-            return;
+        if (trace) {
+            System.out.print("Process ");
+            System.out.print(entry.toString());
         }
 
         MethodInfo minfo = cinfo.getMethod(entry.name, entry.desc);
         processMethod(minfo);
-        System.out.println();
+
+        if (trace) {
+            System.out.println();
+        }
     }
 
     public void processEntries() {
@@ -453,14 +457,27 @@ public class JMin {
     }
 
     public static void main(String[] args) throws IOException {
-        if (args.length != 4 && (args.length != 5 || (!args[4].equals("class") && !args[4].equals("method") && !args[4].equals("field")))) {
-            System.out.println("Usage: <classpath> <class> <method_name> <method_signature> [<mode>]");
-            System.out.println("  mode = class (remove only unused classes)");
-            System.out.println("  mode = method (remove unused classes and methods)");
-            System.out.println("  mode = field (remove unused classes, methods and fields)");
+        boolean argsValid = args.length == 4;
+        String reductionMode = System.getProperty(REDUCTION_MODE_PROPERTY_NAME);
+        argsValid &= reductionMode == null || reductionMode.equals("class") || reductionMode.equals("method") || reductionMode.equals("field");
+        String inclusionMode = System.getProperty(INCLUSION_MODE_PROPERTY_NAME);
+        argsValid &= inclusionMode == null || inclusionMode.equals("reference") || inclusionMode.equals("instantiation");
+        String traceMode = System.getProperty(TRACE_PROPERTY_NAME);
+        argsValid &= traceMode == null || traceMode.equalsIgnoreCase("true") || traceMode.equalsIgnoreCase("false");
+        if (!argsValid) {
+            System.out.println("Usage: <classpath> <class> <method_name> <method_signature>");
+            System.out.println("Set " + REDUCTION_MODE_PROPERTY_NAME + " to control how minimization is performed: ");
+            System.out.println("  = class (remove only unused classes) [default]");
+            System.out.println("  = method (remove unused classes and methods)");
+            System.out.println("  = field (remove unused classes, methods and fields)");
+            System.out.println("Set " + INCLUSION_MODE_PROPERTY_NAME + " to control how classes are included in the analysis: ");
+            System.out.println("  = reference (overriden / implemented methods are scanned when the class is first referenced)");
+            System.out.println("  = instantiation (overridden / implemented methods are scanned when the class is first instantiated) [default]");
+            System.out.println("Set " + TRACE_PROPERTY_NAME + " to control output verbosity: ");
+            System.out.println("  = true (verbose output will be printed to stdout)");
+            System.out.println("  = false (only impotant diagnostic output will be printed to stdout) [default]");
             return;
         }
-        String mode = args.length == 5 ? args[4] : "class";
         FileSystem fs = FileSystems.getDefault();
         String[] paths = args[0].split(File.pathSeparator);
         boolean error = false;
@@ -492,8 +509,10 @@ public class JMin {
         
         JMin jmin = new JMin(paths, args[1], args[2], args[3]);
         jmin.populateWorklist();
+        System.out.print("Processing worklist...");
         jmin.processEntries();
         //jmin.dumpInfo();
-        jmin.minimizeJars(mode);
+        System.out.println("done");
+        jmin.minimizeJars();
     }
 }

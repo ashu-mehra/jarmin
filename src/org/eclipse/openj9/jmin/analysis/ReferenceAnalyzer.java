@@ -138,9 +138,10 @@ public class ReferenceAnalyzer {
                             && frames[i] != null) {
                             BasicValue arg = getStackValue(frames[i], 0);
                             if (arg instanceof StringValue && ((StringValue)arg).getContents() != null) {
-                                String clazz = ((StringValue)arg).getContents().replace('.', '/');
+                                String clazz = ((StringValue)arg).getContents();
                                 //System.out.println("reflected class " + clazz);
                                 minfo.addReferencedClass(clazz);
+                                minfo.addInstantiatedClass(clazz);
                             } else {
                                 //System.out.println("! unknown Class.forName at " + owner + " " + mn.name + " " + mn.desc);
                             }
@@ -153,12 +154,14 @@ public class ReferenceAnalyzer {
                             if (arg instanceof ClassValue && context.getServiceProviders(((ClassValue)arg).getName()) != null) {
                                 for (String svc : context.getServiceProviders(((ClassValue)arg).getName())) {
                                     minfo.addReferencedClass(svc);
+                                    minfo.addInstantiatedClass(svc);
                                 }
                             } else {
                                 for (String si : context.getServiceInterfaces()) {
                                     minfo.addReferencedClass(si);
                                     for (String svc : context.getServiceProviders(si)) {
                                         minfo.addReferencedClass(svc);
+                                        minfo.addInstantiatedClass(svc);
                                     }
                                 }
                             }
@@ -172,8 +175,23 @@ public class ReferenceAnalyzer {
                             BasicValue arg = getStackValue(frames[i], 2);
                             if (arg instanceof MethodValue) {
                                 MethodValue mv = (MethodValue)arg;
-                                String mclazz = mv.getClazz().replace('.', '/');
+                                String mclazz = mv.getClazz();
                                 minfo.addCallSite(mclazz, mv.getName(), "*", CallKind.VIRTUAL);
+                            }
+                        }
+                        else if (m.owner.equals("java/lang/Class")
+                            && m.name.equals("newInstance")
+                            && m.desc.equals("()Ljava/lang/Object;")
+                            && frames[i] != null) {
+                            BasicValue arg = getStackValue(frames[i], 0);
+                            if (arg instanceof ClassValue) {
+                                String init = ((ClassValue)arg).getName();
+                                minfo.addInstantiatedClass(init);
+                                for (String sclazz : context.getSuperClasses(init)) {
+                                    minfo.addInstantiatedClass(sclazz);
+                                }
+                            } else {
+                                //System.out.println("! Unknown Class.newInstance - type information may be incomplete");
                             }
                         }
                         minfo.addCallSite(m.owner, m.name, m.desc, CallKind.VIRTUAL);
@@ -184,7 +202,7 @@ public class ReferenceAnalyzer {
                             && frames[i] != null) {
                             BasicValue arg = getStackValue(frames[i], 0);
                             if (arg instanceof StringValue && ((StringValue)arg).getContents() != null) {
-                                String clazz = ((StringValue)arg).getContents().replace('.', '/');
+                                String clazz = ((StringValue)arg).getContents();
                                 minfo.addReferencedClass(clazz);
                             }
                         }
@@ -201,6 +219,9 @@ public class ReferenceAnalyzer {
                         System.out.println("@^@ " + t.desc + " from typeinsnnode in " + owner + "." + mn.name + mn.desc);
                     }*/
                     minfo.addReferencedClass(t.desc);
+                    if (t.getOpcode() == Opcodes.NEW) {
+                        minfo.addInstantiatedClass(t.desc);
+                    }
                 } else if (insn instanceof FieldInsnNode) {
                     FieldInsnNode f = (FieldInsnNode)insn;
                     minfo.addReferencedField(f.owner, f.name, f.desc, f.getOpcode() == Opcodes.GETSTATIC || f.getOpcode() == Opcodes.PUTSTATIC ? FieldKind.STATIC : FieldKind.INSTANCE);
@@ -234,6 +255,10 @@ public class ReferenceAnalyzer {
                         && indy.bsmArgs.length > 2
                         && indy.bsmArgs[1] instanceof Handle) {
                         Handle hBSM = (Handle)indy.bsmArgs[1];
+                        if (hBSM.getName().equals("<init>")) {
+                            minfo.addReferencedClass(hBSM.getOwner());
+                            minfo.addInstantiatedClass(hBSM.getOwner());
+                        }
                         minfo.addCallSite(hBSM.getOwner(), hBSM.getName(), hBSM.getDesc(), CallKind.DYNAMIC);
                     } else {
                         System.out.println("indy name " + indy.name + " desc " + indy.desc);

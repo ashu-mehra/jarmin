@@ -40,7 +40,7 @@ public class QuarkusAnnotationProcessor extends ClassVisitor {
     public AnnotationVisitor visitAnnotation(final String desc, final boolean visible) {
         if (desc.equals("Lio/quarkus/runtime/annotations/Recorder;")) {
             isRecorder = true;
-            worklist.processClass(clazz);
+            worklist.instantiateClass(clazz);
         }
         
         if (cv != null) {

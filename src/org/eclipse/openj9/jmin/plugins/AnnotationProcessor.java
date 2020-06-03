@@ -74,7 +74,7 @@ public class AnnotationProcessor extends ClassVisitor {
     @Override
     public AnnotationVisitor visitAnnotation(final String desc, final boolean visible) {
         if (matchesAnnotation(desc, classAnnotations)) {
-            worklist.processClass(clazz);
+            worklist.instantiateClass(clazz);
         }
         
         if (cv != null) {
@@ -93,6 +93,7 @@ public class AnnotationProcessor extends ClassVisitor {
         return new FieldVisitor(ASM8, cv != null ? cv.visitField(faccess, fname, fdesc, fsignature, fvalue) : null) {
             public AnnotationVisitor visitAnnotation(final String desc, final boolean visible) {
                 if (matchesAnnotation(desc, fieldAnnotations)) {
+                    worklist.instantiateClass(clazz);
                     worklist.processField(clazz, fname, fdesc);
                 }
                 if (fv != null) {
@@ -109,6 +110,7 @@ public class AnnotationProcessor extends ClassVisitor {
             @Override
             public AnnotationVisitor visitAnnotation(java.lang.String desc, boolean visible) {
                 if (matchesAnnotation(desc, methodAnnotations)) {
+                    worklist.instantiateClass(clazz);
                     worklist.processVirtualMethod(clazz, mname, mdesc);
                 }
                 if (mv != null) {
@@ -120,6 +122,7 @@ public class AnnotationProcessor extends ClassVisitor {
             @Override
             public AnnotationVisitor visitParameterAnnotation(final int parameter, final String desc, final boolean visible) {
                 if (matchesAnnotation(desc, methodParameterAnnotations)) {
+                    worklist.instantiateClass(clazz);
                     worklist.processVirtualMethod(clazz, mname, mdesc);
                 }
                 if (mv != null) {

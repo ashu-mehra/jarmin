@@ -14,12 +14,22 @@ You need to have a Java 8 JDK on the command line
 
 ## Running
 ```
-/path/to/java -cp ./bin:./lib/asm-8.0.1.jar:./lib/asm-analysis-8.0.1.jar:./lib/asm-tree-8.0.1.jar:./lib/asm-util-8.0.1.jar org.eclipse.openj9.JMin <classpath to search> <main class> <main method name> <main method signature> [mode]
+/path/to/java -cp ./bin:./lib/asm-8.0.1.jar:./lib/asm-analysis-8.0.1.jar:./lib/asm-tree-8.0.1.jar:./lib/asm-util-8.0.1.jar org.eclipse.openj9.JMin <classpath to search> <main class> <main method name> <main method signature>
 ```
-The tool supports 3 modes of operation:
-- class (default): unreferenced classes will be removed
-- method: unreferenced classes will be removed and unreferenced methods will be removed from classes which are retained
-- field: unreferenced classes will be remove adn unreferenced methods and fields will be removed from classes which are retained
+The tool had three system properties that control its operation:
+
+Set org.eclipse.openj9.jmin.reduction_mode to control how minimization is performed:
+- class (remove only unused classes) [default]
+- method (remove unused classes and methods)
+- field (remove unused classes, methods and fields)
+
+Set org.eclipse.openj9.jmin.inclusion_mode to control how classes are included in the analysis: 
+- reference (overriden / implemented methods are scanned when the class is first referenced)
+- instantiation (overridden / implemented methods are scanned when the class is first instantiated) [default]
+
+Set org.eclipse.openj9.jmin.trace to control output verbosity: 
+- true (verbose output will be printed to stdout)
+- false (only impotant diagnostic output will be printed to stdout) [default]
 
 At the present time the `method` and `field` modes are experimental and do not support fields only initialized but not read after
 initialization so results will vary.

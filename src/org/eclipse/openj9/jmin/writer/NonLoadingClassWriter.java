@@ -23,8 +23,8 @@ public class NonLoadingClassWriter extends ClassWriter {
     protected String getCommonSuperClass(String type1, String type2) {
         type1 = type1.replace('.', '/');
         type2 = type2.replace('.', '/');
-        List<String> supers1 = context.getSuperClasses(type1.replace('.', '/'));
-        List<String> supers2 = context.getSuperClasses(type2.replace('.', '/'));
+        List<String> supers1 = context.getSuperClasses(type1);
+        List<String> supers2 = context.getSuperClasses(type2);
         if (supers1 == null || supers2 == null) {
             String msg = "";
             if (supers1 == null) {

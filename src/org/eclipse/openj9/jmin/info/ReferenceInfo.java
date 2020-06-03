@@ -23,6 +23,10 @@ public class ReferenceInfo {
         ClassInfo info = classInfo.get(name);
         return info != null && info.isReferenced();
     }
+    public boolean isClassInstantiated(String name) {
+        ClassInfo info = classInfo.get(name);
+        return info != null && info.isInstantiated();
+    }
     public ClassInfo getClassInfo(String name) {
         return classInfo.get(name);
     }

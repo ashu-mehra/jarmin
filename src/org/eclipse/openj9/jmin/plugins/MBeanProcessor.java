@@ -39,10 +39,12 @@ public class MBeanProcessor extends ClassVisitor {
         for (String s : suffixes) {
             if (name.endsWith(s)) {
                 matched = true;
+                worklist.instantiateClass(name);
                 for (MethodInfo mi : info.getClassInfo(name).getMethodsByNameOnly("<init>")) {
                     worklist.processMethod(name, "<init>", mi.desc());
                 }
                 for (String i : context.getInterfaceImplementors(name)) {
+                    worklist.instantiateClass(i);
                     for (MethodInfo mi : info.getClassInfo(i).getMethodsByNameOnly("<init>")) {
                         worklist.processMethod(i, "<init>", mi.desc());
                     }
