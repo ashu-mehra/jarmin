@@ -33,11 +33,6 @@ import org.eclipse.openj9.jmin.writer.NonLoadingClassWriter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.AnnotationVisitor;
-
-import static org.objectweb.asm.Opcodes.ASM8;
-
-import jdk.internal.org.objectweb.asm.Opcodes;
 
 public class JMin {
     public static final String REDUCTION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.reduction_mode";
@@ -122,56 +117,14 @@ public class JMin {
                 throw new RuntimeException(e);
             }
         }
-        ClassVisitor annotationProcessor = new ClassVisitor(ASM8, null) {
-            private String clazzName;
-            @Override
-            public void visit(int version, int access, java.lang.String name, java.lang.String signature,
-                              java.lang.String superName, java.lang.String[] interfaces) {
-                clazzName = name;
-            }
-            @Override
-            public AnnotationVisitor visitAnnotation(final String descriptor, final boolean visible) {
-                AnnotationVisitor inner = cv != null ? cv.visitAnnotation(descriptor, visible) : null;
-                if (descriptor.equals("Ljava/lang/annotation/Retention;")) {
-                    return new AnnotationVisitor(ASM8, inner) {
-                        @Override
-                        public void visitEnum(final String name, final String descriptor,
-                                final String value) {
-                            if (av != null) {
-                                av.visitEnum(name, descriptor, value);
-                            }
-                            if (name.equals("value") && value.equals("RUNTIME")) {
-                                context.addRuntimeAnnotation(clazzName);
-                            }
-                        }
-                    };
-                }
-                return null;
-            }
-        };
+        
         for (String jar : jars) {
             JarInputStream jin = new JarInputStream(new FileInputStream(jar));
             ZipEntry ze = jin.getNextEntry();
 
             while (ze != null) {
                 String entryName = ze.getName();
-                if (entryName.endsWith(".class") && !entryName.endsWith("module-info.class")) {
-                    ClassReader cr = new ClassReader(jin);
-                    entryName = entryName.substring(0, entryName.length() - 6);
-                    String clazzName = entryName;//cr.getClassName();
-                    if (!context.addClassToJarMapping(clazzName, jar)) {
-                        System.out.println("Duplicate class found! " + clazzName + " current jar " + jar + " previous "
-                                + context.getJarForClass(clazzName));
-                        ze = jin.getNextEntry();
-                        continue;
-                    }
-                    context.addSuperClass(clazzName, cr.getSuperName());
-                    context.addInterfaces(clazzName, cr.getInterfaces());
-                    
-                    if ((cr.getAccess() & Opcodes.ACC_ANNOTATION) != 0) {
-                        cr.accept(annotationProcessor, ClassReader.SKIP_DEBUG | ClassReader.SKIP_CODE | ClassReader.SKIP_FRAMES);
-                    }
-                } else if (!ze.isDirectory() && entryName.startsWith("META-INF/services/")) {
+                if (!ze.isDirectory() && entryName.startsWith("META-INF/services/") && !entryName.endsWith(".class")) {
                     System.out.println("Found service entry " + entryName);
                     String serviceName = entryName.substring("META-INF/services".length());
                     serviceName = serviceName.replace('.', '/');
@@ -194,7 +147,8 @@ public class JMin {
             }
             jin.close();
         }
-        context.computeClosure();
+        
+        
 
         for (String jar : jars) {
             JarInputStream jin = new JarInputStream(new FileInputStream(jar));
@@ -204,13 +158,15 @@ public class JMin {
                 String entryName = ze.getName();
                 if (entryName.endsWith(".class") && !entryName.endsWith("module-info.class")) {
                     ClassReader cr = new ClassReader(jin);
-                    cr.accept(ReferenceAnalyzer.getReferenceInfoProcessor(info, context), ClassReader.SKIP_DEBUG);
+                    cr.accept(ReferenceAnalyzer.getReferenceInfoProcessor(jar, info, context), ClassReader.SKIP_DEBUG);
                     entryName = entryName.substring(0, entryName.length() - 6);
                 }
                 ze = jin.getNextEntry();
             }
             jin.close();
         }
+
+        context.computeClosure();
 
         worklist.processMethod(clazz, method, signature);
     }

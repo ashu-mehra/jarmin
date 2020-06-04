@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 public class HierarchyContext {
+    private boolean closureComputed;
     private JarMap clazzToJar;
     private ServiceMap serviceClazzMap;
     private HashMap<String, String[]> classInterfaces;
@@ -65,6 +66,7 @@ public class HierarchyContext {
     }
 
     public List<String> getSuperClasses(String clazz) {
+        assert closureComputed : "Cannot call for hierarchy information before closure computation is complete";
         if (superMap.containsKey(clazz)) {
             return superMap.get(clazz);
         }
@@ -84,6 +86,7 @@ public class HierarchyContext {
     }
 
     public Set<String> getInterfaceImplementors(String clazz) {
+        assert closureComputed : "Cannot call for hierarchy information before closure computation is complete";
         if (interfaceImplementorMap.containsKey(clazz)) {
             return interfaceImplementorMap.get(clazz);
         }
@@ -99,12 +102,13 @@ public class HierarchyContext {
     }
 
     public Set<String> getSubClasses(String clazz) {
+        assert closureComputed : "Cannot call for hierarchy information before closure computation is complete";
         if (subMap.containsKey(clazz)) {
             return subMap.get(clazz);
         }
         return null;
     }
-
+    
     public void computeClosure() {
         // construct closure of superclasses
         for (String c : superMap.keySet()) {
@@ -155,5 +159,6 @@ public class HierarchyContext {
                 }
             }
         }
+        closureComputed = true;
     }
 }
