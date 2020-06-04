@@ -38,6 +38,7 @@ public class JMin {
     public static final String REDUCTION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.reduction_mode";
     public static final String INCLUSION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.inclusion_mode";
     public static final String TRACE_PROPERTY_NAME = "org.eclipse.openj9.jmin.trace";
+    public static final String ALL_SVC_IMPLEMENTAIONS = "@LL_SVC";
     private String reductionMode;
     private boolean trace;
     private String[] jars;
@@ -124,7 +125,11 @@ public class JMin {
 
             while (ze != null) {
                 String entryName = ze.getName();
-                if (!ze.isDirectory() && entryName.startsWith("META-INF/services/") && !entryName.endsWith(".class")) {
+                if (entryName.endsWith(".class") && !entryName.endsWith("module-info.class")) {
+                    ClassReader cr = new ClassReader(jin);
+                    cr.accept(ReferenceAnalyzer.getReferenceInfoProcessor(jar, info, context), ClassReader.SKIP_DEBUG);
+                    entryName = entryName.substring(0, entryName.length() - 6);
+                } else if (!ze.isDirectory() && entryName.startsWith("META-INF/services/") && !entryName.endsWith(".class")) {
                     System.out.println("Found service entry " + entryName);
                     String serviceName = entryName.substring("META-INF/services".length());
                     serviceName = serviceName.replace('.', '/');
@@ -142,24 +147,6 @@ public class JMin {
                         }
                         reader.close();
                     }
-                }
-                ze = jin.getNextEntry();
-            }
-            jin.close();
-        }
-        
-        
-
-        for (String jar : jars) {
-            JarInputStream jin = new JarInputStream(new FileInputStream(jar));
-            ZipEntry ze = jin.getNextEntry();
-
-            while (ze != null) {
-                String entryName = ze.getName();
-                if (entryName.endsWith(".class") && !entryName.endsWith("module-info.class")) {
-                    ClassReader cr = new ClassReader(jin);
-                    cr.accept(ReferenceAnalyzer.getReferenceInfoProcessor(jar, info, context), ClassReader.SKIP_DEBUG);
-                    entryName = entryName.substring(0, entryName.length() - 6);
                 }
                 ze = jin.getNextEntry();
             }

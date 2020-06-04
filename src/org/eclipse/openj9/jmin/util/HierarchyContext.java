@@ -27,6 +27,7 @@ public class HierarchyContext {
     }
 
     public boolean addClassToJarMapping(String clazz, String jar) {
+        assert !closureComputed : "Cannot alter the hierarchy after computing the closure of data structures for quering";
         if (!clazzToJar.containsKey(clazz)) {
             clazzToJar.put(clazz, jar);
             return true;
@@ -43,6 +44,7 @@ public class HierarchyContext {
     }
 
     public void addServiceMap(String service, String clazz) {
+        assert !closureComputed : "Cannot alter the hierarchy after computing the closure of data structures for quering";
         if (!serviceClazzMap.containsKey(service)) {
             serviceClazzMap.put(service, new ArrayList<String>());
         }
@@ -50,14 +52,17 @@ public class HierarchyContext {
     }
 
     public List<String> getServiceProviders(String service) {
+        assert closureComputed : "Cannot call for hierarchy information before closure computation is complete";
         return serviceClazzMap.get(service);
     }
 
     public Set<String> getServiceInterfaces() {
+        assert closureComputed : "Cannot call for hierarchy information before closure computation is complete";
         return serviceClazzMap.keySet();
     }
 
     public void addSuperClass(String clazz, String sup) {
+        assert !closureComputed : "Cannot alter the hierarchy after computing the closure of data structures for quering";
         ArrayList<String> superclasses = new ArrayList<String>();
         if (sup != null) {
             superclasses.add(sup);
@@ -74,6 +79,7 @@ public class HierarchyContext {
     }
 
     public void addInterfaces(String clazz, String[] interfaces) {
+        assert !closureComputed : "Cannot alter the hierarchy after computing the closure of data structures for quering";
         classInterfaces.put(clazz, interfaces);
     }
 
@@ -94,10 +100,12 @@ public class HierarchyContext {
     }
 
     public void addRuntimeAnnotation(String clazz) {
+        assert !closureComputed : "Cannot alter the hierarchy after computing the closure of data structures for quering";
         runtimeAnnotations.add(clazz);
     }
 
     public boolean hasRuntimeAnnotation(String clazz) {
+        assert closureComputed : "Cannot call for hierarchy information before closure computation is complete";
         return runtimeAnnotations.contains(clazz);
     }
 
@@ -108,8 +116,9 @@ public class HierarchyContext {
         }
         return null;
     }
-    
+
     public void computeClosure() {
+        assert !closureComputed : "Closure can only be computed once";
         // construct closure of superclasses
         for (String c : superMap.keySet()) {
             ArrayList<String> itr = superMap.get(c);

@@ -91,6 +91,18 @@ public class WorkList {
                 instantiateClass(superClazzes.get(0));
             }
 
+            if (context.getServiceProviders(clazz) != null) {
+                for (String impl : context.getServiceProviders(clazz)) {
+                    instantiateClass(impl);
+                }
+            } else if (clazz.equals(JMin.ALL_SVC_IMPLEMENTAIONS)) {
+                for (String svc : context.getServiceInterfaces()) {
+                    for (String impl : context.getServiceProviders(svc)) {
+                        instantiateClass(impl);
+                    }
+                }
+            }
+
             if (inclusionMode == "instantiation") {
                 processMethods(clazz);
             }

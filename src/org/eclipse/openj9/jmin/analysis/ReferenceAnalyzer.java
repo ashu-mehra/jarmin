@@ -1,5 +1,6 @@
 package org.eclipse.openj9.jmin.analysis;
 
+import org.eclipse.openj9.JMin;
 import org.eclipse.openj9.jmin.info.CallKind;
 import org.eclipse.openj9.jmin.info.ClassInfo;
 import org.eclipse.openj9.jmin.info.FieldKind;
@@ -174,19 +175,19 @@ public class ReferenceAnalyzer {
                             // TODO this is not very precise right now so we just load everything if we can't find the service to load
                             // need interprocedural analysis to find the class names that are arriving
 
-                            if (arg != null && arg instanceof ClassValue && context.getServiceProviders(((ClassValue)arg).getName()) != null) {
-                                for (String svc : context.getServiceProviders(((ClassValue)arg).getName())) {
-                                    minfo.addReferencedClass(svc);
-                                    minfo.addInstantiatedClass(svc);
-                                }
+                            if (arg != null && arg instanceof ClassValue) {
+                                minfo.addReferencedClass(((ClassValue)arg).getName());
+                                minfo.addInstantiatedClass(((ClassValue)arg).getName());
                             } else {
-                                for (String si : context.getServiceInterfaces()) {
+                                minfo.addReferencedClass(JMin.ALL_SVC_IMPLEMENTAIONS);
+                                minfo.addInstantiatedClass(JMin.ALL_SVC_IMPLEMENTAIONS);
+                                /*for (String si : context.getServiceInterfaces()) {
                                     minfo.addReferencedClass(si);
                                     for (String svc : context.getServiceProviders(si)) {
                                         minfo.addReferencedClass(svc);
                                         minfo.addInstantiatedClass(svc);
                                     }
-                                }
+                                }*/
                             }
                         }
                         minfo.addCallSite(m.owner, m.name, m.desc, CallKind.STATIC);
