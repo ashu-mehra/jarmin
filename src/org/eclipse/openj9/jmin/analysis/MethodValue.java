@@ -2,6 +2,8 @@ package org.eclipse.openj9.jmin.analysis;
 
 import org.objectweb.asm.tree.analysis.BasicValue;
 
+import org.objectweb.asm.Type;
+
 /**
  * Represents an instance of <code>java/lang/reflect/Method</code>.
  * 
@@ -16,14 +18,14 @@ public class MethodValue extends BasicValue {
     private String desc;
     
     public MethodValue(String clazz, String name, String desc) {
-        super(null);
+        super(Type.getObjectType("java/lang/reflect/Method"));
         this.clazz = clazz;
         this.name = name;
         this.desc = desc;
     }
     
     public MethodValue(MethodValue v) {
-        super(null);
+        super(Type.getObjectType("java/lang/reflect/Method"));
         this.clazz = v.clazz;
         this.name = v.name;
         this.desc = v.desc;

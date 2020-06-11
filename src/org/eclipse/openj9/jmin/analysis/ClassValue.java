@@ -1,5 +1,6 @@
 package org.eclipse.openj9.jmin.analysis;
 
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
 /**
@@ -12,12 +13,12 @@ public class ClassValue extends BasicValue {
     private String name;
     
     public ClassValue(String name) {
-        super(null);
+        super(Type.getObjectType("java/lang/Class"));
         this.name = name;
     }
     
     public ClassValue(ClassValue v) {
-        super(null);
+        super(Type.getObjectType("java/lang/Class"));
         this.name = new String(v.getName());
     }
     

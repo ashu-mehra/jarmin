@@ -2,6 +2,8 @@ package org.eclipse.openj9.jmin.analysis;
 
 import org.objectweb.asm.tree.analysis.BasicValue;
 
+import org.objectweb.asm.Type;
+
 /**
  * Represents a constant string value propagating through the program.
  * 
@@ -12,12 +14,12 @@ public class StringValue extends BasicValue {
     private String contents;
     
     public StringValue() {
-        super(null);
+        super(Type.getObjectType("java/lang/String"));
         this.contents = null;
     }
     
     public StringValue(String contents) {
-        super(null);
+        super(Type.getObjectType("java/lang/String"));
         this.contents = contents;
     }
     

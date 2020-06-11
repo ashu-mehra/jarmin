@@ -73,24 +73,41 @@ public class ReflectionInterpreter extends BasicInterpreter {
     }
   
     @Override
+    public BasicValue newParameterValue(final boolean isInstanceMethod, final int local, final Type type) {
+        return new ParameterValue(local, newValue(type));
+    }
+
+    @Override
     public BasicValue merge(BasicValue v1, BasicValue v2) {
-      if (v1 instanceof StringValue 
-          && v2 instanceof StringValue
-          && ((StringValue)v1).equals(v2)) {
-          return new StringValue((StringValue)v1);
-      } else if (v1 instanceof ClassValue
-                 && v2 instanceof ClassValue
-                 && ((ClassValue)v1).equals(v2)) {
-          return new ClassValue((ClassValue)v1);
-      } else if (v1 instanceof MethodValue
-                 && v2 instanceof MethodValue
-                 && ((MethodValue)v1).equals(v2)) {
-          return new MethodValue((MethodValue)v2);
-      }
-      return super.merge(isRef(v1) ? REFERENCE_VALUE : v1, isRef(v2) ? REFERENCE_VALUE : v2);
+        if (v1 instanceof StringValue 
+            && v2 instanceof StringValue
+            && ((StringValue)v1).equals(v2)) {
+            return new StringValue((StringValue)v1);
+        } else if (v1 instanceof ClassValue
+                   && v2 instanceof ClassValue
+                   && ((ClassValue)v1).equals(v2)) {
+            return new ClassValue((ClassValue)v1);
+        } else if (v1 instanceof MethodValue
+                   && v2 instanceof MethodValue
+                   && ((MethodValue)v1).equals(v2)) {
+            return new MethodValue((MethodValue)v2);
+        } else if (v1 instanceof ParameterValue
+                   && v2 instanceof ParameterValue) {
+            if (((ParameterValue)v1).equals(v2)) {
+                return new ParameterValue((ParameterValue)v2);
+            }
+            return this.merge(((ParameterValue)v1).getValue(), ((ParameterValue)v2).getValue());
+        }
+        return super.merge(degradeValue(v1), degradeValue(v2));
     }
   
-    private boolean isRef(Value v) {
-      return v == REFERENCE_VALUE || v instanceof StringValue || v instanceof ClassValue || v instanceof MethodValue;
+    private BasicValue degradeValue(BasicValue v) {
+        if (v instanceof StringValue || v instanceof ClassValue || v instanceof MethodValue) {
+            return REFERENCE_VALUE;
+        }
+        if (v instanceof ParameterValue) {
+            return degradeValue(((ParameterValue)v).getValue());
+        }
+        return v;
     }
-  }
+}
