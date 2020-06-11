@@ -40,52 +40,52 @@ public class ReflectionInterpreter extends BasicInterpreter {
         return this.naryOperation(insn, values, null);
     }
     public BasicValue naryOperation(AbstractInsnNode insn, List<? extends BasicValue> values, final InterospectiveFrame frame) throws AnalyzerException {
-      if (insn instanceof MethodInsnNode) {
-          MethodInsnNode m = (MethodInsnNode) insn;
-          if (m.getOpcode() == INVOKESPECIAL) {
-              // handle string constructors
-              if (m.owner.equals("java/lang/String")
-                  && m.name.equals("<init>")) {
-                  if (m.desc.equals("()V")
-                      && values.get(0) instanceof StringValue) {
-                      ((StringValue)values.get(0)).setContents("");
-                  } else if (m.desc.equals("(Ljava/lang/String;)V")
-                      && values.get(0) instanceof StringValue 
-                      && values.get(1) instanceof StringValue) {
-                      ((StringValue)values.get(0)).setContents(((StringValue)values.get(1)).getContents());
-                  }
-              }
-          } else if (m.getOpcode() == INVOKESTATIC) {
-              if (m.owner.equals("java/lang/Class")
-                  && m.name.equals("forName")
-                  && m.desc.equals("(Ljava/lang/String;)Ljava/lang/Class;")
-                  && values.get(0) instanceof StringValue
-                  && ((StringValue)values.get(0)).getContents() != null) {
-                  return new ClassValue(((StringValue)values.get(0)).getContents());
-              }
-          } else if (m.getOpcode() == INVOKEVIRTUAL) {
-              if (m.owner.equals("java/lang/Class")) {
-                    if ((m.name.equals("getMethod") || m.name.equals("getDeclaredMethod"))
-                        && m.desc.equals("(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;")
-                        && values.get(0) instanceof ClassValue
-                        && values.get(1) instanceof StringValue
-                        && ((StringValue)values.get(1)).getContents() != null) {
-                        return new MethodValue(((ClassValue)values.get(0)).getName(), ((StringValue)values.get(1)).getContents(), "*");
-                    } else if ((m.name.equals("getField") || m.name.equals("getDeclaredField"))
-                               && m.desc.equals("(Ljava/lang/String;)Ljava/lang/reflect/Field;")
-                               && values.get(0) instanceof ClassValue
-                               && values.get(1) instanceof StringValue
-                               && ((StringValue)values.get(1)).getContents() != null) {
-                        return new FieldValue(((ClassValue)values.get(0)).getName(), ((StringValue)values.get(1)).getContents());
+        if (insn instanceof MethodInsnNode) {
+            MethodInsnNode m = (MethodInsnNode) insn;
+            if (m.getOpcode() == INVOKESPECIAL) {
+                // handle string constructors
+                if (m.owner.equals("java/lang/String")
+                        && m.name.equals("<init>")) {
+                    if (m.desc.equals("()V")
+                            && values.get(0) instanceof StringValue) {
+                        ((StringValue) values.get(0)).setContents("");
+                    } else if (m.desc.equals("(Ljava/lang/String;)V")
+                            && values.get(0) instanceof StringValue
+                            && values.get(1) instanceof StringValue) {
+                        ((StringValue) values.get(0)).setContents(((StringValue) values.get(1)).getContents());
                     }
-              } else if (m.owner.equals("java/lang/StringBuilder")) {
+                }
+            } else if (m.getOpcode() == INVOKESTATIC) {
+                if (m.owner.equals("java/lang/Class")
+                        && m.name.equals("forName")
+                        && m.desc.equals("(Ljava/lang/String;)Ljava/lang/Class;")
+                        && values.get(0) instanceof StringValue
+                        && ((StringValue) values.get(0)).getContents() != null) {
+                    return new ClassValue(((StringValue) values.get(0)).getContents());
+                }
+            } else if (m.getOpcode() == INVOKEVIRTUAL) {
+                if (m.owner.equals("java/lang/Class")) {
+                    if ((m.name.equals("getMethod") || m.name.equals("getDeclaredMethod"))
+                            && m.desc.equals("(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;")
+                            && values.get(0) instanceof ClassValue
+                            && values.get(1) instanceof StringValue
+                            && ((StringValue) values.get(1)).getContents() != null) {
+                        return new MethodValue(((ClassValue) values.get(0)).getName(), ((StringValue) values.get(1)).getContents(), "*");
+                    } else if ((m.name.equals("getField") || m.name.equals("getDeclaredField"))
+                            && m.desc.equals("(Ljava/lang/String;)Ljava/lang/reflect/Field;")
+                            && values.get(0) instanceof ClassValue
+                            && values.get(1) instanceof StringValue
+                            && ((StringValue) values.get(1)).getContents() != null) {
+                        return new FieldValue(((ClassValue) values.get(0)).getName(), ((StringValue) values.get(1)).getContents());
+                    }
+                } else if (m.owner.equals("java/lang/StringBuilder")) {
                     if (m.name.equals("append")) {
                         if (m.desc.equals("(Ljava/lang/String;)Ljava/lang/StringBuilder;")
                             && values.get(0) != null
                             && values.get(0) instanceof StringBuilderValue
-                            && values.get(1) != null 
-                            && values.get(1) instanceof StringValue) {
-                            StringBuilderValue sbv = new StringBuilderValue((StringBuilderValue)values.get(0));
+                            && values.get(1) != null
+                            && (values.get(1) instanceof StringValue || values.get(1) instanceof ParameterValue)) {
+                            StringBuilderValue sbv = new StringBuilderValue((StringBuilderValue) values.get(0));
                             sbv.append(values.get(1));
                             if (frame != null) {
                                 frame.replaceValue(values.get(0), sbv);
@@ -93,20 +93,23 @@ public class ReflectionInterpreter extends BasicInterpreter {
                             return sbv;
                         }
                     } else if (m.name.equals("toString") && m.desc.equals("()Ljava/lang/String;")) {
-                        
                         if (values.get(0) instanceof StringBuilderValue) {
-                            return ((StringBuilderValue)values.get(0)).getContents();
+                            return ((StringBuilderValue) values.get(0)).getContents();
                         }
                     }
-              }
-          }
-      }
-      return super.naryOperation(insn, values);
+                }
+            }
+        }
+        return super.naryOperation(insn, values);
     }
   
     @Override
     public BasicValue newParameterValue(final boolean isInstanceMethod, final int local, final Type type) {
-        return new ParameterValue(local, newValue(type));
+        if (isInstanceMethod) {
+            return new ParameterValue(local-1, newValue(type));
+        } else {
+            return new ParameterValue(local, newValue(type));
+        }
     }
 
     @Override

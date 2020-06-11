@@ -1,47 +1,70 @@
 package org.eclipse.openj9.jmin.info;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 
 import org.eclipse.openj9.jmin.util.HierarchyContext;
 
+import static org.eclipse.openj9.jmin.info.CallKind.INTERFACE;
+import static org.eclipse.openj9.jmin.info.CallKind.VIRTUAL;
+
 public class ReferenceInfo {
     private final HashMap<String, ClassInfo> classInfo;
+    private final ArrayList<MethodInfo> reflectionCallers;
+    private final HashMap<String, LinkedList<MethodInfo>> overriddenMethods;
+    public static boolean callersComputed = false;
+
     public ReferenceInfo() {
         classInfo = new HashMap<String, ClassInfo>();
+        reflectionCallers = new ArrayList<MethodInfo>();
+        overriddenMethods = new HashMap();
     }
+
+    public List<ClassInfo> getClassInfoList() {
+        return new ArrayList<>(classInfo.values());
+    }
+
     public ClassInfo addClass(String name) {
         if (!classInfo.containsKey(name)) {
             classInfo.put(name, new ClassInfo(name));
         }
         return classInfo.get(name);
     }
+
     public boolean hasClass(String name) {
         return classInfo.containsKey(name);
     }
+
     public boolean isClassReferenced(String name) {
         ClassInfo info = classInfo.get(name);
         return info != null && info.isReferenced();
     }
+
     public boolean isClassInstantiated(String name) {
         ClassInfo info = classInfo.get(name);
         return info != null && info.isInstantiated();
     }
+
     public ClassInfo getClassInfo(String name) {
         return classInfo.get(name);
     }
+
     public int getReferencedClassCount() {
         int toReturn = 0;
         for (String c : classInfo.keySet()) {
             if (classInfo.get(c).isReferenced()) {
-                toReturn ++;
+                toReturn++;
             }
         }
         return toReturn;
     }
+
     public int getClassCount() {
         return classInfo.size();
     }
+
     public String markFieldReference(HierarchyContext context, String clazz, String name, String desc) {
         ClassInfo ci = classInfo.get(clazz);
         String foundClazz = null;
@@ -60,6 +83,7 @@ public class ReferenceInfo {
         }
         return foundClazz;
     }
+
     private ClassInfo findClassOfMethod(HierarchyContext context, String clazz, String name, String desc) {
         ClassInfo ci = classInfo.get(clazz);
         ClassInfo foundClazz = null;
@@ -67,9 +91,8 @@ public class ReferenceInfo {
             foundClazz = ci;
         } else {
             LinkedList<String> classesToCheck = new LinkedList<String>();
-            classesToCheck.add(clazz);
             classesToCheck.addAll(context.getSuperClasses(clazz));
-            
+
             while (!classesToCheck.isEmpty()) {
                 String c = classesToCheck.pop();
                 ci = classInfo.get(c);
@@ -85,10 +108,43 @@ public class ReferenceInfo {
         }
         return foundClazz;
     }
+
     public String findDeclaringClassOfMethod(HierarchyContext context, String clazz, String name, String desc) {
         ClassInfo ci = findClassOfMethod(context, clazz, name, desc);
         return ci == null ? null : ci.name();
     }
+
+    public MethodInfo findMethodInfoForMethod(HierarchyContext context, String clazz, String name, String desc) {
+        ClassInfo ci = findClassOfMethod(context, clazz, name, desc);
+        if (ci != null) {
+            return ci.getMethod(name, desc);
+        } else {
+            return null;
+        }
+    }
+
+    public void forEachSubClass(HierarchyContext context, String clazz, ClassInfoVisitor visitor) {
+        if (context.getSubClasses(clazz) != null) {
+            for (String subClass : context.getSubClasses(clazz)) {
+                visitor.visitClass(getClassInfo(subClass));
+            }
+        }
+    }
+
+    public void forEachInterfaceImplementor(HierarchyContext context, String intf, ClassInfoVisitor visitor) {
+        for (String implementor : context.getInterfaceImplementors(intf)) {
+            visitor.visitClass(getClassInfo(implementor));
+        }
+    }
+
+    public void addReflectionCaller(MethodInfo minfo) {
+        reflectionCallers.add(minfo);
+    }
+
+    public ArrayList<MethodInfo> getReflectionCallers() {
+        return reflectionCallers;
+    }
+
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for (String clazz : classInfo.keySet()) {
@@ -96,5 +152,82 @@ public class ReferenceInfo {
             sb.append("\n");
         }
         return sb.toString();
+    }
+
+    private String createKey(String calleeClass, String calleeName, String calleeDesc) {
+        return calleeClass+calleeName+calleeDesc;
+    }
+
+    public LinkedList<MethodInfo> getOverriddenMethods(String calleeClass, String calleeName, String calleeDesc) {
+        String key = createKey(calleeClass, calleeName, calleeDesc);
+        return overriddenMethods.get(key);
+    }
+
+    public void addToOverriddenMethodMap(String calleeClass, String calleeName, String calleeDesc, LinkedList overriddenMethodsList) {
+        String key = createKey(calleeClass, calleeName, calleeDesc);
+        overriddenMethods.put(key, overriddenMethodsList);
+    }
+
+    private void addCallerToMethodInfo(CallSite callSite, LinkedList<MethodInfo> calleeList) {
+        for (MethodInfo m: calleeList) {
+            m.addCaller(callSite);
+        }
+    }
+
+    private void processCallSite(HierarchyContext context, CallSite callSite, String calleeClass, String calleeName, String calleeDesc) {
+        LinkedList<MethodInfo> calleeList = getOverriddenMethods(calleeClass, calleeName, calleeDesc);
+        if (calleeList == null) {
+            MethodInfo callee = findMethodInfoForMethod(context, calleeClass, calleeName, calleeDesc);
+            if (callee != null) {
+                final LinkedList overriddenList = new LinkedList();
+                overriddenList.add(callee);
+                if (callSite.kind == VIRTUAL || callSite.kind == INTERFACE) {
+                    ClassInfoVisitor visitor = clazz -> {
+                        MethodInfo m = clazz.getMethod(calleeName, calleeDesc);
+                        if (m != null) {
+                            overriddenList.add(m);
+                        }
+                    };
+                    if (callSite.kind == VIRTUAL) {
+                        forEachSubClass(context, calleeClass, visitor);
+                    } else if (callSite.kind == INTERFACE) {
+                        forEachInterfaceImplementor(context, calleeClass, visitor);
+                    }
+                }
+                addToOverriddenMethodMap(calleeClass, calleeName, calleeDesc, overriddenList);
+                addCallerToMethodInfo(callSite, overriddenList);
+            }
+        } else {
+            addCallerToMethodInfo(callSite, calleeList);
+        }
+    }
+
+    private void processCallSites(HierarchyContext context, MethodInfo minfo) {
+        for (CallSite callSite: minfo.getCallSites()) {
+            if (callSite.desc.equals("*")) {
+                ClassInfo ci = getClassInfo(callSite.clazz);
+                if (ci != null) {
+                    for (MethodInfo mi : ci.getMethodsByNameOnly(callSite.name)) {
+                        processCallSite(context, callSite, callSite.clazz, callSite.name, mi.desc());
+                    }
+                }
+            } else {
+                processCallSite(context, callSite, callSite.clazz, callSite.name, callSite.desc);
+            }
+        }
+    }
+
+    public void createCalleeCallerMap(HierarchyContext context) {
+        assert !callersComputed : "Callers can only be computed once";
+        System.out.println("Start creating caller list");
+        long start = System.nanoTime();
+        for (ClassInfo clazz : getClassInfoList() ) {
+            for (MethodInfo minfo: clazz.getMethodInfoList()) {
+                processCallSites(context, minfo);
+            }
+        }
+        long end = System.nanoTime();
+        System.out.println("Callee-Caller map: " + (end - start)/1000000 + " msecs");
+        callersComputed = true;
     }
 }

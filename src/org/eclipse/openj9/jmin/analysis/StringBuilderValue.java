@@ -22,22 +22,28 @@ public class StringBuilderValue extends BasicValue {
     }
     
     public void append(BasicValue v) {
-        assert !appended : "Cannot append more than once to a StringBuilderValue";
+        //assert !appended : "Cannot append more than once to a StringBuilderValue";
         appended = true;
         contents.add(v);
     }
 
+    public void append(ArrayList<BasicValue> values) {
+        //assert !appended : "Cannot append more than once to a StringBuilderValue";
+        appended = true;
+        contents.addAll(values);
+    }
+
     public BasicValue getContents() {
-        StringBuilder builder = new StringBuilder();
-        for (BasicValue bv : contents) {
-            if (bv instanceof StringValue) {
-                String toAppend = ((StringValue)bv).getContents();
+        if (isComputable()) {
+            StringBuilder builder = new StringBuilder();
+            for (BasicValue bv : contents) {
+                String toAppend = ((StringValue) bv).getContents();
                 builder.append(toAppend);
-            } else {
-                return BasicValue.REFERENCE_VALUE;
             }
+            return new StringValue(builder.toString());
+        } else {
+            return new StringBuilderValue(this);
         }
-        return new StringValue(builder.toString());
     }
 
     public boolean isParameterDependent() {
@@ -55,6 +61,26 @@ public class StringBuilderValue extends BasicValue {
         for (int i = 0, e = toReturn.contents.size(); i != e; ++i) {
             if (toReturn.contents.get(i).equals(param)) {
                 toReturn.contents.set(i, value);
+            }
+        }
+        return toReturn;
+    }
+
+    public StringBuilderValue copyWithParamSubstituition(BasicValue[] paramValues) {
+        StringBuilderValue toReturn = new StringBuilderValue();
+        for (int i = 0; i != contents.size(); i++) {
+            if (contents.get(i) instanceof ParameterValue) {
+                ParameterValue parameter = (ParameterValue)contents.get(i);
+                BasicValue paramValue = paramValues[parameter.getIndex()];
+                if (paramValue instanceof StringBuilderValue) {
+                    toReturn.append(((StringBuilderValue) paramValue).contents);
+                } else if (paramValue instanceof ParameterValue || paramValue instanceof StringValue) {
+                    toReturn.append(paramValue);
+                } else {
+                    return null;
+                }
+            } else {
+                toReturn.append(contents.get(i));
             }
         }
         return toReturn;
@@ -82,5 +108,14 @@ public class StringBuilderValue extends BasicValue {
             }
         }
         return false;
+    }
+
+    public boolean isComputable() {
+        for (BasicValue entry: contents) {
+            if (!(entry instanceof StringValue)) {
+                return false;
+            }
+        }
+        return true;
     }
 }
