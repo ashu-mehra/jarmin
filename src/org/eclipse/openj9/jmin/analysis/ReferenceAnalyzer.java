@@ -7,7 +7,6 @@ import org.eclipse.openj9.jmin.info.FieldKind;
 import org.eclipse.openj9.jmin.info.MethodInfo;
 import org.eclipse.openj9.jmin.info.ReferenceInfo;
 import org.eclipse.openj9.jmin.util.HierarchyContext;
-import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicValue;
 import org.objectweb.asm.tree.analysis.Frame;
@@ -302,7 +301,7 @@ class AnalysisFrames {
     }
     public BasicValue getStackValue(int instructionIndex, int frameIndex) throws AnalyzerException {
         if (frames == null) {
-            Analyzer<BasicValue> a = new Analyzer<BasicValue>(new ReflectionInterpreter());
+            InterospectiveAnalyzer a = new InterospectiveAnalyzer(new ReflectionInterpreter());
             a.analyze(owner, mn);
             frames = a.getFrames();
         }

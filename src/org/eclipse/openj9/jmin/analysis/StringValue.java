@@ -24,7 +24,7 @@ public class StringValue extends BasicValue {
     }
     
     public StringValue(StringValue v) {
-        super(null);
+        super(Type.getObjectType("java/lang/String"));
         this.contents = new String(v.getContents());
     }
     

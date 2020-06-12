@@ -28,6 +28,8 @@ public class ReflectionInterpreter extends BasicInterpreter {
           TypeInsnNode n = (TypeInsnNode)insn;
           if (n.desc.equals("java/lang/String")) {
               return new StringValue(); // contents will be set later (potentially)
+          } else if (n.desc.equals("java/lang/StringBuilder")) {
+              return new StringBuilderValue(); // appender will create new values later
           }
       }
       return super.newOperation(insn);
@@ -35,6 +37,9 @@ public class ReflectionInterpreter extends BasicInterpreter {
     
     @Override
     public BasicValue naryOperation(AbstractInsnNode insn, List<? extends BasicValue> values) throws AnalyzerException {
+        return this.naryOperation(insn, values, null);
+    }
+    public BasicValue naryOperation(AbstractInsnNode insn, List<? extends BasicValue> values, final InterospectiveFrame frame) throws AnalyzerException {
       if (insn instanceof MethodInsnNode) {
           MethodInsnNode m = (MethodInsnNode) insn;
           if (m.getOpcode() == INVOKESPECIAL) {
@@ -59,13 +64,38 @@ public class ReflectionInterpreter extends BasicInterpreter {
                   return new ClassValue(((StringValue)values.get(0)).getContents());
               }
           } else if (m.getOpcode() == INVOKEVIRTUAL) {
-              if (m.owner.equals("java/lang/Class")
-                  && (m.name.equals("getMethod") || m.name.equals("getDeclaredMethod"))
-                  && m.desc.equals("(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;")
-                  && values.get(0) instanceof ClassValue
-                  && values.get(1) instanceof StringValue
-                  && ((StringValue)values.get(1)).getContents() != null) {
-                  return new MethodValue(((ClassValue)values.get(0)).getName(), ((StringValue)values.get(1)).getContents(), "*");
+              if (m.owner.equals("java/lang/Class")) {
+                    if ((m.name.equals("getMethod") || m.name.equals("getDeclaredMethod"))
+                        && m.desc.equals("(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;")
+                        && values.get(0) instanceof ClassValue
+                        && values.get(1) instanceof StringValue
+                        && ((StringValue)values.get(1)).getContents() != null) {
+                        return new MethodValue(((ClassValue)values.get(0)).getName(), ((StringValue)values.get(1)).getContents(), "*");
+                    } else if ((m.name.equals("getField") || m.name.equals("getDeclaredField"))
+                               && m.desc.equals("(Ljava/lang/String;)Ljava/lang/reflect/Field;")
+                               && values.get(0) instanceof ClassValue
+                               && values.get(1) instanceof StringValue
+                               && ((StringValue)values.get(1)).getContents() != null) {
+                        return new FieldValue(((ClassValue)values.get(0)).getName(), ((StringValue)values.get(1)).getContents());
+                    }
+              } else if (m.owner.equals("java/lang/StringBuilder")) {
+                    if (m.name.equals("append")) {
+                        if (m.desc.equals("(Ljava/lang/String;)Ljava/lang/StringBuilder;")
+                            && values.get(1) != null 
+                            && values.get(1) instanceof StringValue) {
+                            StringBuilderValue sbv = new StringBuilderValue((StringBuilderValue)values.get(0));
+                            sbv.append(values.get(1));
+                            if (frame != null) {
+                                frame.replaceValue(values.get(0), sbv);
+                            }
+                            return sbv;
+                        }
+                    } else if (m.name.equals("toString") && m.desc.equals("()Ljava/lang/String;")) {
+                        
+                        if (values.get(0) instanceof StringBuilderValue) {
+                            return ((StringBuilderValue)values.get(0)).getContents();
+                        }
+                    }
               }
           }
       }
@@ -81,16 +111,20 @@ public class ReflectionInterpreter extends BasicInterpreter {
     public BasicValue merge(BasicValue v1, BasicValue v2) {
         if (v1 instanceof StringValue 
             && v2 instanceof StringValue
-            && ((StringValue)v1).equals(v2)) {
+            && v1.equals(v2)) {
             return new StringValue((StringValue)v1);
         } else if (v1 instanceof ClassValue
                    && v2 instanceof ClassValue
-                   && ((ClassValue)v1).equals(v2)) {
+                   && v1.equals(v2)) {
             return new ClassValue((ClassValue)v1);
         } else if (v1 instanceof MethodValue
                    && v2 instanceof MethodValue
-                   && ((MethodValue)v1).equals(v2)) {
+                   && v1.equals(v2)) {
             return new MethodValue((MethodValue)v2);
+        } else if (v1 instanceof StringBuilderValue
+                   && v2 instanceof StringBuilderValue
+                   && v1.equals(v2)) {
+            return new StringBuilderValue((StringBuilderValue)v1);
         } else if (v1 instanceof ParameterValue
                    && v2 instanceof ParameterValue) {
             if (((ParameterValue)v1).equals(v2)) {
@@ -102,7 +136,7 @@ public class ReflectionInterpreter extends BasicInterpreter {
     }
   
     private BasicValue degradeValue(BasicValue v) {
-        if (v instanceof StringValue || v instanceof ClassValue || v instanceof MethodValue) {
+        if (v instanceof StringValue || v instanceof ClassValue || v instanceof MethodValue || v instanceof StringBuilderValue) {
             return REFERENCE_VALUE;
         }
         if (v instanceof ParameterValue) {
