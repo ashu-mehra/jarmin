@@ -1,20 +1,15 @@
 package org.eclipse.openj9;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.jar.*;
 import java.util.zip.*;
 
@@ -32,7 +27,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 
 public class JMin {
-
+    public static final String GEN_MINIMIZED_JARS_ENABLED = "org.eclipse.openj9.jmin.generate_min_jars.enable";
     public static final String ALL_SVC_IMPLEMENTAIONS = "@LL_SVC";
 
     private String[] jars;
@@ -93,7 +88,7 @@ public class JMin {
     };
     private ClassVisitor processors;
     
-    public JMin(String[] jars, String clazz, String method, String signature) throws IOException {
+    public JMin(String[] jars, List<MethodInfo> startList) throws IOException {
         this.jars = jars.clone();
         context = new HierarchyContext();
         info = new ReferenceInfo();
@@ -121,7 +116,9 @@ public class JMin {
             info.createCalleeCallerMap(context);
             Summarizer.createSummary(info, context);
         }
-        worklist.processMethod(clazz, method, signature);
+        for (MethodInfo minfo: startList) {
+            worklist.processMethod(minfo.clazz(), minfo.name(), minfo.desc());
+        }
     }
 
     private void processJarFile(String jar, JarInputStream jin) throws IOException {
@@ -214,6 +211,24 @@ public class JMin {
             }
         }
         jout.closeEntry();
+    }
+
+    public void generateMethodList() throws IOException {
+        System.out.println("Generating method list");
+        BufferedWriter writer = new BufferedWriter(new FileWriter("/tmp/jarmin_methods.log"));
+        for (String clazz : context.seenClasses()) {
+            if (info.isClassReferenced(clazz)) {
+                HashSet<MethodInfo> methods = info.getClassInfo(clazz).getMethods();
+                for (MethodInfo minfo: methods) {
+                    if ((Config.reductionMode == Config.REDUCTION_MODE_CLASS) || minfo.referenced()) {
+                        writer.write(clazz + " " + minfo.name() + " " + minfo.desc() + "\n");
+                    }
+                }
+            }
+        }
+        if (writer != null) {
+            writer.close();
+        }
     }
 
     public int minimizeJarFile(String jar, JarInputStream jin, JarOutputStream jout) throws IOException {
@@ -455,7 +470,7 @@ public class JMin {
    }
 
     public static void main(String[] args) throws IOException {
-        boolean argsValid = args.length == 4;
+        boolean argsValid = (args.length == 4 || args.length == 2);
         argsValid &= Config.validateProperties();
         if (!argsValid) {
             showUsage();
@@ -492,10 +507,35 @@ public class JMin {
             System.out.println("  " + path);
         }
 
-        JMin jmin = new JMin(paths, args[1], args[2], args[3]);
+        List<MethodInfo> startList = new ArrayList();
+        if (args.length == 2) {
+            /* args[1] should be a file containing list of methods to use as root set */
+            BufferedReader br = new BufferedReader(new FileReader(args[1]));
+            String entry = br.readLine();
+            while (entry != null) {
+                String[] parts = entry.trim().split(" ");
+                startList.add(new MethodInfo(parts[0], parts[1], parts[2]));
+                entry = br.readLine();
+            }
+        } else {
+            /* only single method is specified as the entry point */
+            startList.add(new MethodInfo(args[1], args[2], args[3]));
+        }
+        JMin jmin = new JMin(paths, startList);
         jmin.populateWorklist();
         System.out.println("Processing worklist...");
         jmin.processEntries();
-        jmin.minimizeJars();
+        //jmin.dumpInfo();
+        System.out.println("done");
+
+        jmin.generateMethodList();
+
+        String generateJars = System.getProperty(GEN_MINIMIZED_JARS_ENABLED);
+        if (generateJars == null) {
+            generateJars = "false";
+        }
+        if (generateJars.equalsIgnoreCase("true")) {
+            jmin.minimizeJars();
+        }
     }
 }
