@@ -81,6 +81,8 @@ public class ReflectionInterpreter extends BasicInterpreter {
               } else if (m.owner.equals("java/lang/StringBuilder")) {
                     if (m.name.equals("append")) {
                         if (m.desc.equals("(Ljava/lang/String;)Ljava/lang/StringBuilder;")
+                            && values.get(0) != null
+                            && values.get(0) instanceof StringBuilderValue
                             && values.get(1) != null 
                             && values.get(1) instanceof StringValue) {
                             StringBuilderValue sbv = new StringBuilderValue((StringBuilderValue)values.get(0));
