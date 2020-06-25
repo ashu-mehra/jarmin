@@ -114,7 +114,6 @@ public class ReferenceAnalyzer {
     private static void processMethod(String owner, MethodNode mn, ReferenceInfo info, HierarchyContext context) throws AnalyzerException {
         ClassInfo cinfo = info.getClassInfo(owner);
         MethodInfo minfo = cinfo.addMethod(mn.name, mn.desc);
-        //System.out.println("Processing method: " + cinfo.name() + " " + minfo);
         for (Type t : Type.getArgumentTypes(mn.desc)) {
             if (t.getSort() == Type.OBJECT) {
                 minfo.addReferencedClass(t.getInternalName());
@@ -159,7 +158,6 @@ public class ReferenceAnalyzer {
                                     minfo.addReferencedClass(clazz);
                                     minfo.addInstantiatedClass(clazz);
                                 } else if (arg instanceof ParameterValue || arg instanceof StringBuilderValue) {
-                                    //System.out.println("Class.forName is passed parameter " + ((ParameterValue) arg).getIndex());
                                     minfo.getMethodSummary().addInstantiatedValue(arg);
                                 } else {
                                     //System.out.println("! unknown Class.forName at " + owner + " " + mn.name + " " + mn.desc);
@@ -215,7 +213,6 @@ public class ReferenceAnalyzer {
                                     String init = ((ClassValue) arg).getName();
                                     minfo.addInstantiatedClass(init);
                                 } else if (arg instanceof ParameterValue) {
-                                    //System.out.println("Class.newInstance is passed parameter " + ((ParameterValue) arg).getIndex());
                                     minfo.getMethodSummary().addInstantiatedValue(arg);
                                 } else {
                                     //System.out.println("! Unknown Class.newInstance - type information may be incomplete");

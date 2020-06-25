@@ -80,15 +80,11 @@ public class ClassInfo {
     }
     public void markMethodReferenced(String name, String desc) {
         String key = methodKey(name, desc);
-        /*
         if (!methodInfo.containsKey(key)) {
-            assert false;
             methodInfo.put(key, new MethodInfo(this.name, name, desc));
         }
-         */
         methodInfo.get(key).setReferenced();
     }
-    /*
     public void markMethodProcessed(String name, String desc) {
         String key = methodKey(name, desc);
         if (!methodInfo.containsKey(key)) {
@@ -96,7 +92,6 @@ public class ClassInfo {
         }
         methodInfo.get(key).setProcessed();
     }
-    */
     public Set<MethodInfo> getMethodsByNameOnly(String name) {
         HashSet<MethodInfo> toReturn = new HashSet<MethodInfo>();
         for (MethodInfo mi : methodInfo.values()) {

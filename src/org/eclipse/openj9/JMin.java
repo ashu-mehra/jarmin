@@ -23,6 +23,7 @@ import org.eclipse.openj9.jmin.WorkItem;
 import org.eclipse.openj9.jmin.analysis.ReferenceAnalyzer;
 import org.eclipse.openj9.jmin.info.*;
 import org.eclipse.openj9.jmin.methodsummary.Summarizer;
+import org.eclipse.openj9.jmin.util.Config;
 import org.eclipse.openj9.jmin.util.HierarchyContext;
 import org.eclipse.openj9.jmin.util.WorkList;
 import org.eclipse.openj9.jmin.writer.FilteringClassWriterAdapter;
@@ -32,21 +33,16 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 
 public class JMin {
-    public static final String REDUCTION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.reduction_mode";
-    public static final String INCLUSION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.inclusion_mode";
-    public static final String TRACE_PROPERTY_NAME = "org.eclipse.openj9.jmin.trace";
-    public static final String ENABLE_METHOD_SUMMARY = "org.eclipse.openj9.jmin.method_summary";
+
     public static final String ALL_SVC_IMPLEMENTAIONS = "@LL_SVC";
-    private final boolean disableMethodSummary;
-    private String reductionMode;
-    private boolean trace;
+
     private String[] jars;
     private HierarchyContext context;
     private WorkList worklist;
     private ReferenceInfo info;
     private static String[] jdkWhitelist = new String[] {
-        "java/util/jar", 
-        "java/util/zip", 
+        "java/util/jar",
+        "java/util/zip",
         "com/ibm/oti",
         "java/lang/invoke", 
         "java/lang/J9VMInternals", 
@@ -95,18 +91,10 @@ public class JMin {
     private ClassVisitor processors;
     
     public JMin(String[] jars, String clazz, String method, String signature) throws IOException {
-        this.reductionMode = System.getProperty(REDUCTION_MODE_PROPERTY_NAME);
-        if (this.reductionMode == null) {
-            this.reductionMode = "class";
-        }
-        String traceMode = System.getProperty(TRACE_PROPERTY_NAME);
-        trace = traceMode != null && traceMode.equalsIgnoreCase("true");
-        String useMethodSummary = System.getProperty(ENABLE_METHOD_SUMMARY);
-        disableMethodSummary = (useMethodSummary != null && useMethodSummary.equalsIgnoreCase("false"));
         this.jars = jars.clone();
         context = new HierarchyContext();
         info = new ReferenceInfo();
-        worklist = new WorkList(this.reductionMode, info, context);
+        worklist = new WorkList(info, context);
         
         processors = null;
         for (Class<?> proc : processorClasses) {
@@ -120,7 +108,6 @@ public class JMin {
             }
         }
 
-        long start = System.nanoTime();
         for (String jar : jars) {
             JarInputStream jin = new JarInputStream(new FileInputStream(jar));
             ZipEntry ze = jin.getNextEntry();
@@ -132,9 +119,6 @@ public class JMin {
                     if (!info.hasClass(className)) {
                         ClassReader cr = new ClassReader(jin);
                         cr.accept(ReferenceAnalyzer.getReferenceInfoProcessor(new ClassSource(jar, entryName), info, context), ClassReader.SKIP_DEBUG);
-                        entryName = entryName.substring(0, entryName.length() - 6);
-                    } else {
-                        System.out.println("Duplicate class: " + className);
                     }
                 } else if (!ze.isDirectory() && entryName.startsWith("META-INF/services/") && !entryName.endsWith(".class")) {
                     System.out.println("Found service entry " + entryName);
@@ -159,11 +143,9 @@ public class JMin {
             }
             jin.close();
         }
-        long end = System.nanoTime();
-        System.out.println("First pass: " + (end - start)/1000000 + " msecs");
 
         context.computeClosure();
-        if (!disableMethodSummary) {
+        if (Config.enableMethodSummary) {
             info.createCalleeCallerMap(context);
             Summarizer.createSummary(info, context);
         }
@@ -228,7 +210,6 @@ public class JMin {
 
     public void minimizeJars() throws IOException {
         int classCount = 0;
-        long start = System.nanoTime();
         HashSet<String> jarsToProcess = new HashSet<String>();
         for (String clazz : context.seenClasses()) {
             if (info.isClassReferenced(clazz)) {
@@ -239,6 +220,7 @@ public class JMin {
         FileSystem fs = FileSystems.getDefault();
         File targetDir = new File("." + File.separator + "minimized_jars");
         targetDir.mkdirs();
+        int totalCount = 0;
         for (String jar : jarsToProcess) {
             Path path = fs.getPath(jar);
             String jarname = path.getFileName().toString();
@@ -249,6 +231,8 @@ public class JMin {
             JarOutputStream jout = man != null ? new JarOutputStream(new FileOutputStream(dest), man) : new JarOutputStream(new FileOutputStream(dest));
             byte[] buffer = new byte[512];
             ZipEntry entry = jin.getNextEntry();
+            int jarFilesCount = 0;
+            int jarClassCount = 0;
             while (entry != null) {
                 boolean isWhitelisted = false;
                 for (String pattern : jdkWhitelist) {
@@ -258,36 +242,37 @@ public class JMin {
                     }
                 }
                 if (isWhitelisted
-                    || !entry.getName().endsWith(".class")
-                    || entry.getName().equals("class-info.class")
-                    || (reductionMode.equals("class") && info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6)))) {
-                    if (entry.getName().endsWith(".class") && !entry.getName().equals("class-info.class") && (reductionMode.equals("class") && info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6)))) {
-                        classCount++;
+                        || !entry.getName().endsWith(".class")
+                        || entry.getName().equals("class-info.class")) {
+                    if (entry.getName().endsWith(".class") && !entry.getName().equals("class-info.class")) {
+                        classCount += 1;
                     }
                     copyFile(jin, jout, buffer, entry);
-                } else if (entry.getName().endsWith(".class") 
-                           && (reductionMode.equals("method") || reductionMode.equals("field") || reductionMode.equals("class")) 
-                           && info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6))) {
-                    classCount++;
-                    BufferedInputStream bis = new BufferedInputStream(jin);
-                    if (entry.getSize() * 2 < Integer.MAX_VALUE - 1) {
-                        try {
-                            bis.mark((int)(entry.getSize() * 2) + 1);
-                            ClassReader cr = new ClassReader(bis);
-                            ClassWriter cw = new NonLoadingClassWriter(context, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-                            cr.accept(new FilteringClassWriterAdapter(reductionMode, info, cw), 0);
-                            ZipEntry newEntry = new ZipEntry(entry.getName());
-                            jout.putNextEntry(newEntry);
-                            jout.write(cw.toByteArray());
-                            jout.closeEntry();
-                        } catch (Exception e) {
-                            bis.reset();
-                            System.out.println("Unable to minimize " + entry.getName() + " - copying whole");
-                            System.out.println("Error " + e.getMessage());
-                            copyFile(bis, jout, buffer, entry);
-                        }
-                    } else {
+                } else if (info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6))) {
+                    classCount += 1;
+                    if (Config.reductionMode == Config.REDUCTION_MODE_CLASS) {
                         copyFile(jin, jout, buffer, entry);
+                    } else {
+                        BufferedInputStream bis = new BufferedInputStream(jin);
+                        if (entry.getSize() * 2 < Integer.MAX_VALUE - 1) {
+                            try {
+                                bis.mark((int) (entry.getSize() * 2) + 1);
+                                ClassReader cr = new ClassReader(bis);
+                                ClassWriter cw = new NonLoadingClassWriter(context, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+                                cr.accept(new FilteringClassWriterAdapter(Config.reductionMode, info, cw), 0);
+                                ZipEntry newEntry = new ZipEntry(entry.getName());
+                                jout.putNextEntry(newEntry);
+                                jout.write(cw.toByteArray());
+                                jout.closeEntry();
+                            } catch (Exception e) {
+                                bis.reset();
+                                System.out.println("Unable to minimize " + entry.getName() + " - copying whole");
+                                System.out.println("Error " + e.getMessage());
+                                copyFile(bis, jout, buffer, entry);
+                            }
+                        } else {
+                            copyFile(jin, jout, buffer, entry);
+                        }
                     }
                 }
                 entry = jin.getNextEntry();
@@ -296,8 +281,6 @@ public class JMin {
             jout.close();
         }
         System.out.println("Total classes copied: " + classCount);
-        long end = System.nanoTime();
-        System.out.println("Generate jars: " + (end - start)/1000000 + " msecs");
     }
 
     private void populateWorklist() throws IOException {
@@ -395,7 +378,7 @@ public class JMin {
     protected void processEntry() {
         WorkItem entry = worklist.next();
         ClassInfo cinfo = info.getClassInfo(entry.clazz);
-        if (trace) {
+        if (Config.trace) {
             System.out.print("Process ");
             System.out.print(entry.toString());
         }
@@ -403,47 +386,43 @@ public class JMin {
         MethodInfo minfo = cinfo.getMethod(entry.name, entry.desc);
         processMethod(minfo);
 
-        if (trace) {
+        if (Config.trace) {
             System.out.println();
         }
     }
 
     public void processEntries() {
-        long start = System.nanoTime();
         while (worklist.hasNext()) {
             processEntry();
         }
-        long end = System.nanoTime();
-        System.out.println("Process worklist: " + (end - start)/1000000 + " msecs");
     }
+
+    private static void showUsage() {
+        System.out.println("Usage: <classpath> <class> <method_name> <method_signature>");
+        System.out.println("Set " + Config.REDUCTION_MODE_PROPERTY_NAME + " to control how minimization is performed: ");
+        System.out.println("  = class (remove only unused classes) [default]");
+        System.out.println("  = method (remove unused classes and methods)");
+        System.out.println("  = field (remove unused classes, methods and fields)");
+        System.out.println("Set " + Config.INCLUSION_MODE_PROPERTY_NAME + " to control how classes are included in the analysis: ");
+        System.out.println("  = reference (overriden / implemented methods are scanned when the class is first referenced)");
+        System.out.println("  = instantiation (overridden / implemented methods are scanned when the class is first instantiated) [default]");
+        System.out.println("Set " + Config.TRACE_PROPERTY_NAME + " to control output verbosity: ");
+        System.out.println("  = true (verbose output will be printed to stdout)");
+        System.out.println("  = false (only impotant diagnostic output will be printed to stdout) [default]");
+        System.out.println("Set " + Config.ENABLE_METHOD_SUMMARY + " to enable method summary to locate classes used via reflection: ");
+        System.out.println("  = true [default]");
+        System.out.println("  = false");
+   }
 
     public static void main(String[] args) throws IOException {
         boolean argsValid = args.length == 4;
-        String reductionMode = System.getProperty(REDUCTION_MODE_PROPERTY_NAME);
-        argsValid &= reductionMode == null || reductionMode.equals("class") || reductionMode.equals("method") || reductionMode.equals("field");
-        String inclusionMode = System.getProperty(INCLUSION_MODE_PROPERTY_NAME);
-        argsValid &= inclusionMode == null || inclusionMode.equals("reference") || inclusionMode.equals("instantiation");
-        String traceMode = System.getProperty(TRACE_PROPERTY_NAME);
-        argsValid &= traceMode == null || traceMode.equalsIgnoreCase("true") || traceMode.equalsIgnoreCase("false");
-        String useMethodSummary = System.getProperty(ENABLE_METHOD_SUMMARY);
-        argsValid &= useMethodSummary == null || useMethodSummary.equalsIgnoreCase("true") || useMethodSummary.equalsIgnoreCase("false");
+        argsValid &= Config.validateProperties();
         if (!argsValid) {
-            System.out.println("Usage: <classpath> <class> <method_name> <method_signature>");
-            System.out.println("Set " + REDUCTION_MODE_PROPERTY_NAME + " to control how minimization is performed: ");
-            System.out.println("  = class (remove only unused classes) [default]");
-            System.out.println("  = method (remove unused classes and methods)");
-            System.out.println("  = field (remove unused classes, methods and fields)");
-            System.out.println("Set " + INCLUSION_MODE_PROPERTY_NAME + " to control how classes are included in the analysis: ");
-            System.out.println("  = reference (overriden / implemented methods are scanned when the class is first referenced)");
-            System.out.println("  = instantiation (overridden / implemented methods are scanned when the class is first instantiated) [default]");
-            System.out.println("Set " + TRACE_PROPERTY_NAME + " to control output verbosity: ");
-            System.out.println("  = true (verbose output will be printed to stdout)");
-            System.out.println("  = false (only impotant diagnostic output will be printed to stdout) [default]");
-            System.out.println("Set " + ENABLE_METHOD_SUMMARY + " to enable method summary to locate classes used via reflection: ");
-            System.out.println("  = true [default]");
-            System.out.println("  = false");
+            showUsage();
             return;
         }
+        Config.setGlobalConfig();
+        Config.showCurrentConfig();
         FileSystem fs = FileSystems.getDefault();
         String[] paths = args[0].split(File.pathSeparator);
         boolean error = false;

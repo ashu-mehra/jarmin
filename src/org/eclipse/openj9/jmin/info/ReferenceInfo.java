@@ -220,14 +220,11 @@ public class ReferenceInfo {
     public void createCalleeCallerMap(HierarchyContext context) {
         assert !callersComputed : "Callers can only be computed once";
         System.out.println("Start creating caller list");
-        long start = System.nanoTime();
         for (ClassInfo clazz : getClassInfoList() ) {
             for (MethodInfo minfo: clazz.getMethodInfoList()) {
                 processCallSites(context, minfo);
             }
         }
-        long end = System.nanoTime();
-        System.out.println("Callee-Caller map: " + (end - start)/1000000 + " msecs");
         callersComputed = true;
     }
 }

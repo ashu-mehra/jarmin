@@ -1,5 +1,6 @@
 package org.eclipse.openj9.jmin.writer;
 
+import org.eclipse.openj9.jmin.util.Config;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -10,10 +11,10 @@ import org.eclipse.openj9.jmin.info.ReferenceInfo;
 
 public class FilteringClassWriterAdapter extends ClassVisitor {
     private String clazz;
-    private String mode;
+    private int mode;
     private ReferenceInfo info;
 
-    public FilteringClassWriterAdapter(String mode, ReferenceInfo info, final ClassVisitor next) {
+    public FilteringClassWriterAdapter(int mode, ReferenceInfo info, final ClassVisitor next) {
         super(ASM8, next);
         this.mode = mode;
         this.info = info;
@@ -35,7 +36,7 @@ public class FilteringClassWriterAdapter extends ClassVisitor {
     @Override
     public MethodVisitor visitMethod(int access, java.lang.String name, java.lang.String descriptor, java.lang.String signature, java.lang.String[] exceptions) {
         if (cv != null
-            && (mode.equals("class") || (info.isClassReferenced(clazz) && info.getClassInfo(clazz).isMethodReferenced(name, descriptor)))) {
+            && (mode == Config.REDUCTION_MODE_CLASS || (info.isClassReferenced(clazz) && info.getClassInfo(clazz).isMethodReferenced(name, descriptor)))) {
             return cv.visitMethod(access, name, descriptor, signature, exceptions);
         }
         return null;
@@ -48,7 +49,9 @@ public class FilteringClassWriterAdapter extends ClassVisitor {
         final String signature,
         final Object value) {
         if (cv != null
-            && (mode.equals("class") || mode.equals("method") || (info.isClassReferenced(clazz) && info.getClassInfo(clazz).isFieldReferenced(name, descriptor)))) {
+            && (mode == Config.REDUCTION_MODE_CLASS
+                || mode == Config.REDUCTION_MODE_METHOD
+                || (info.isClassReferenced(clazz) && info.getClassInfo(clazz).isFieldReferenced(name, descriptor)))) {
         return cv.visitField(access, name, descriptor, signature, value);
         }
         return null;

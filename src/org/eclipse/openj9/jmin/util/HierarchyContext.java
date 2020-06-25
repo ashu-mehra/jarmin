@@ -126,7 +126,6 @@ public class HierarchyContext {
     public void computeClosure() {
         assert !closureComputed : "Closure can only be computed once";
         // construct closure of superclasses
-        long start = System.nanoTime();
         for (String c : superMap.keySet()) {
             ArrayList<String> itr = superMap.get(c);
             if (itr != null && itr.size() > 0) {
@@ -177,7 +176,5 @@ public class HierarchyContext {
             }
         }
         closureComputed = true;
-        long end = System.nanoTime();
-        System.out.println("Class hierarcy: " + (end - start)/1000000 + " msecs");
     }
 }
