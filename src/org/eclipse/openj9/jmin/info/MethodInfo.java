@@ -1,5 +1,8 @@
 package org.eclipse.openj9.jmin.info;
 
+import org.eclipse.openj9.jmin.methodsummary.MethodSummary;
+import org.objectweb.asm.tree.MethodNode;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -10,23 +13,30 @@ public class MethodInfo {
     private final String name;
     private final String desc;
     private final ArrayList<CallSite> callsites;
+    private final ArrayList<CallSite> callers;
     private final HashSet<String> referencedClasses;
     private final ArrayList<FieldSite> referencedFields;
     private final HashSet<String> annotations;
     private final HashSet<String> instantiatedTypes;
+    private MethodSummary summary;
     private boolean referenced;
     private boolean processed;
+    private boolean processedForSummary;
+
     public MethodInfo(String clazz, String name, String desc) {
         this.clazz = clazz;
         this.name = name;
         this.desc = desc;
         this.callsites = new ArrayList<CallSite>();
+        this.callers = new ArrayList<CallSite>();
         this.referencedClasses = new HashSet<String>();
         this.referencedFields = new ArrayList<FieldSite>();
         this.annotations = new HashSet<String>();
         this.instantiatedTypes = new HashSet<String>();
+        this.summary = null;
         this.referenced = false;
         this.processed = false;
+        this.processedForSummary = false;
     }
     public String clazz() { return clazz; }
     public String name() { return name; }
@@ -43,8 +53,15 @@ public class MethodInfo {
     public boolean processed() {
         return this.processed;
     }
-    public void addCallSite(String clazz, String name, String desc, CallKind kind) {
-        callsites.add(new CallSite(clazz, name, desc, kind));
+    public void addCallSite(String clazz, String name, String desc, CallKind kind, int instuctionIndex) {
+        callsites.add(new CallSite(this, clazz, name, desc, kind, instuctionIndex));
+    }
+    public void addCaller(CallSite callSite) {
+        callers.add(callSite);
+    }
+    public List<CallSite> getCallers() {
+        assert ReferenceInfo.callersComputed : "Cannot access caller before it is computed";
+        return callers;
     }
     public void addReferencedClass(String clazz) {
         referencedClasses.add(clazz.replace('.', '/'));
@@ -73,8 +90,23 @@ public class MethodInfo {
     public HashSet<String> getInstantiatedClasses() {
         return instantiatedTypes;
     }
+
     @Override
     public String toString() {
         return name + desc + " -" + (referenced ? "" : " not") + " referenced" + (processed ? "" : " not") + " processsed";
     }
+
+    public MethodSummary getMethodSummary() {
+        if (summary == null) {
+            summary = new MethodSummary();
+        }
+        return summary;
+    }
+    public boolean hasMethodSummary() {
+        return summary != null;
+    }
+    public void setProcessedForSummary() {
+        processedForSummary = true;
+    }
+    public boolean isProcessedForSummary() { return processedForSummary; }
 }

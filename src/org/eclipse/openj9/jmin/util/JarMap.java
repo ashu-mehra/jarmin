@@ -1,5 +1,7 @@
 package org.eclipse.openj9.jmin.util;
 
+import org.eclipse.openj9.jmin.info.ClassSource;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -12,7 +14,7 @@ import java.util.Map;
  * @since 1.0
  * @see java.util.HashMap
  */
-public class JarMap extends HashMap<String, String> {
+public class JarMap extends HashMap<String, ClassSource> {
 
     private static final long serialVersionUID = -3099743932266613366L;
 
@@ -28,7 +30,7 @@ public class JarMap extends HashMap<String, String> {
         super(initialCapacity, loadFactor); 
     }
 
-    public JarMap(Map<String, String> other) { 
+    public JarMap(Map<String, ClassSource> other) {
         super(other); 
     }
 

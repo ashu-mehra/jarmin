@@ -1,8 +1,8 @@
 package org.eclipse.openj9.jmin.info;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import org.objectweb.asm.tree.MethodNode;
+
+import java.util.*;
 
 public class ClassInfo {
     private final String name;
@@ -17,6 +17,7 @@ public class ClassInfo {
         this.fieldInfo = new HashMap<String, FieldInfo>();
         this.annotations = new HashSet<String>();
     }
+    public List<MethodInfo> getMethodInfoList() { return new ArrayList<>(methodInfo.values()); }
     public String name() {
         return name;
     }

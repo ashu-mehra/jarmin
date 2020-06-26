@@ -1,17 +1,12 @@
 package org.eclipse.openj9.jmin.analysis;
 
 import org.eclipse.openj9.JMin;
-import org.eclipse.openj9.jmin.info.CallKind;
-import org.eclipse.openj9.jmin.info.ClassInfo;
-import org.eclipse.openj9.jmin.info.FieldKind;
-import org.eclipse.openj9.jmin.info.MethodInfo;
-import org.eclipse.openj9.jmin.info.ReferenceInfo;
+import org.eclipse.openj9.jmin.info.*;
 import org.eclipse.openj9.jmin.util.HierarchyContext;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicValue;
 import org.objectweb.asm.tree.analysis.Frame;
 
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
@@ -27,31 +22,27 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
 
-import static org.objectweb.asm.Opcodes.ASM8;
-import static org.objectweb.asm.Opcodes.INVOKEINTERFACE;
-import static org.objectweb.asm.Opcodes.INVOKESTATIC;
-import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
-
+import static org.objectweb.asm.Opcodes.*;
 import static org.objectweb.asm.Type.ARRAY;
 import static org.objectweb.asm.Type.OBJECT;
 
 import java.util.List;
 
 public class ReferenceAnalyzer {
-    public static ClassVisitor getReferenceInfoProcessor(String jar, ReferenceInfo info, HierarchyContext context) {
+    public static ClassVisitor getReferenceInfoProcessor(ClassSource source, ReferenceInfo info, HierarchyContext context) {
         return new ClassNode(ASM8) {
             private boolean isAnnotation;
             private String clazz;
             @Override
             public void visit(int version,
                   int access,
-                  java.lang.String name,
-                  java.lang.String signature,
-                  java.lang.String superName,
-                  java.lang.String[] interfaces) {
+                  String name,
+                  String signature,
+                  String superName,
+                  String[] interfaces) {
                 this.clazz = name;
-                isAnnotation = (access & Opcodes.ACC_ANNOTATION) != 0;
-                context.addClassToJarMapping(clazz, jar);
+                isAnnotation = (access & ACC_ANNOTATION) != 0;
+                context.addClassToJarMapping(clazz, source);
                 context.addSuperClass(clazz, superName);
                 context.addInterfaces(clazz, interfaces);
                 super.visit(version, access, name, signature, superName, interfaces);
@@ -97,7 +88,7 @@ public class ReferenceAnalyzer {
                     try {
                         processMethod(clazz, mn, info, context);
                     } catch (AnalyzerException e) {
-
+                        System.out.println("AnalyzerException caught when processing method " + cinfo.name() + " " + mn.name + " " + mn.desc);
                     }
                     if (mn.visibleAnnotations != null) {
                         for (AnnotationNode an : mn.visibleAnnotations) {
@@ -119,8 +110,9 @@ public class ReferenceAnalyzer {
             }
         };
     }
+
     private static void processMethod(String owner, MethodNode mn, ReferenceInfo info, HierarchyContext context) throws AnalyzerException {
-        ClassInfo cinfo = info.addClass(owner);
+        ClassInfo cinfo = info.getClassInfo(owner);
         MethodInfo minfo = cinfo.addMethod(mn.name, mn.desc);
         for (Type t : Type.getArgumentTypes(mn.desc)) {
             if (t.getSort() == Type.OBJECT) {
@@ -154,20 +146,24 @@ public class ReferenceAnalyzer {
             if (true) {
                 if (insn instanceof MethodInsnNode) {
                     MethodInsnNode m = (MethodInsnNode)insn;
-                        
                     if (insn.getOpcode() == INVOKESTATIC) {
                         if (m.owner.equals("java/lang/Class")
                             && m.name.equals("forName")
                             && m.desc.equals("(Ljava/lang/String;)Ljava/lang/Class;")) {
                             BasicValue arg = analysisFrames.getStackValue(i, 0);
-                            if (arg != null && arg instanceof StringValue && ((StringValue)arg).getContents() != null) {
-                                String clazz = ((StringValue)arg).getContents();
-                                //System.out.println("reflected class " + clazz);
-                                minfo.addReferencedClass(clazz);
-                                minfo.addInstantiatedClass(clazz);
-                            } else {
-                                //System.out.println("! unknown Class.forName at " + owner + " " + mn.name + " " + mn.desc);
+                            if (arg != null) {
+                                if (arg instanceof StringValue && ((StringValue)arg).getContents() != null) {
+                                    String clazz = ((StringValue) arg).getContents();
+                                    //System.out.println("reflected class " + clazz);
+                                    minfo.addReferencedClass(clazz);
+                                    minfo.addInstantiatedClass(clazz);
+                                } else if (arg instanceof ParameterValue || arg instanceof StringBuilderValue) {
+                                    minfo.getMethodSummary().addInstantiatedValue(arg);
+                                } else {
+                                    //System.out.println("! unknown Class.forName at " + owner + " " + mn.name + " " + mn.desc);
+                                }
                             }
+                            info.addReflectionCaller(minfo);
                         } else if (m.owner.equals("java/util/ServiceLoader")
                             && m.name.equals("load")) {
                             BasicValue arg = analysisFrames.getStackValue(i, 0);
@@ -175,8 +171,11 @@ public class ReferenceAnalyzer {
                             // need interprocedural analysis to find the class names that are arriving
 
                             if (arg != null && arg instanceof ClassValue) {
-                                minfo.addReferencedClass(((ClassValue)arg).getName());
-                                minfo.addInstantiatedClass(((ClassValue)arg).getName());
+                                minfo.addReferencedClass(((ClassValue) arg).getName());
+                                minfo.addInstantiatedClass(((ClassValue) arg).getName());
+                            } else if (arg instanceof ParameterValue) {
+                                //System.out.println("ServiceLoader.store is passed parameter " + ((ParameterValue) arg).getIndex());
+                                minfo.getMethodSummary().addInstantiatedValue(arg);
                             } else {
                                 minfo.addReferencedClass(JMin.ALL_SVC_IMPLEMENTAIONS);
                                 minfo.addInstantiatedClass(JMin.ALL_SVC_IMPLEMENTAIONS);
@@ -188,44 +187,45 @@ public class ReferenceAnalyzer {
                                     }
                                 }*/
                             }
+                            info.addReflectionCaller(minfo);
                         }
-                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.STATIC);
+                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.STATIC, i);
+
                     } else if (insn.getOpcode() == INVOKEVIRTUAL) {
+                        String desc = m.desc;
+                        String clazz = m.owner;
                         if (m.owner.equals("java/lang/reflect/Method")
                             && m.name.equals("invoke")
                             && m.desc.equals("(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")) {
                             BasicValue arg = analysisFrames.getStackValue(i, 2);
                             if (arg != null && arg instanceof MethodValue) {
                                 MethodValue mv = (MethodValue)arg;
-                                String mclazz = mv.getClazz();
-                                minfo.addCallSite(mclazz, mv.getName(), "*", CallKind.VIRTUAL);
+                                clazz = mv.getClazz();
+                                desc = "*";
                             }
                         }
                         else if (m.owner.equals("java/lang/Class")
                             && m.name.equals("newInstance")
                             && m.desc.equals("()Ljava/lang/Object;")) {
                             BasicValue arg = analysisFrames.getStackValue(i, 0);
-                            if (arg != null && arg instanceof ClassValue) {
-                                String init = ((ClassValue)arg).getName();
-                                minfo.addInstantiatedClass(init);
-                            } else {
-                                //System.out.println("! Unknown Class.newInstance - type information may be incomplete");
+                            if (arg != null) {
+                                if (arg instanceof ClassValue) {
+                                    String init = ((ClassValue) arg).getName();
+                                    minfo.addInstantiatedClass(init);
+                                } else if (arg instanceof ParameterValue) {
+                                    minfo.getMethodSummary().addInstantiatedValue(arg);
+                                } else {
+                                    //System.out.println("! Unknown Class.newInstance - type information may be incomplete");
+                                }
                             }
+                            info.addReflectionCaller(minfo);
                         }
-                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.VIRTUAL);
+                        minfo.addCallSite(clazz, m.name, desc, CallKind.VIRTUAL, i);
+
                     } else if (insn.getOpcode() == INVOKEINTERFACE) {
-                        if (m.owner.equals("org/hibernate/boot/registry/classloading/spi/ClassLoaderService")
-                            && m.name.equals("classForName")
-                            && m.desc.equals("(Ljava/lang/String;)Ljava/lang/Class;")) {
-                            BasicValue arg = analysisFrames.getStackValue(i, 0);
-                            if (arg != null && arg instanceof StringValue && ((StringValue)arg).getContents() != null) {
-                                String clazz = ((StringValue)arg).getContents();
-                                minfo.addReferencedClass(clazz);
-                            }
-                        }
-                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.INTERFACE);
+                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.INTERFACE, i);
                     } else {
-                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.SPECIAL);
+                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.SPECIAL, i);
                     }
                     /*if (m.owner.startsWith("java/awt") || m.owner.startsWith("javax/swing")) {
                         System.out.println("@^@ " + m.owner + " from typeinsnnode in " + owner + "." + mn.name + mn.desc);
@@ -236,12 +236,12 @@ public class ReferenceAnalyzer {
                         System.out.println("@^@ " + t.desc + " from typeinsnnode in " + owner + "." + mn.name + mn.desc);
                     }*/
                     minfo.addReferencedClass(t.desc);
-                    if (t.getOpcode() == Opcodes.NEW) {
+                    if (t.getOpcode() == NEW) {
                         minfo.addInstantiatedClass(t.desc);
                     }
                 } else if (insn instanceof FieldInsnNode) {
                     FieldInsnNode f = (FieldInsnNode)insn;
-                    minfo.addReferencedField(f.owner, f.name, f.desc, f.getOpcode() == Opcodes.GETSTATIC || f.getOpcode() == Opcodes.PUTSTATIC ? FieldKind.STATIC : FieldKind.INSTANCE);
+                    minfo.addReferencedField(f.owner, f.name, f.desc, f.getOpcode() == GETSTATIC || f.getOpcode() == PUTSTATIC ? FieldKind.STATIC : FieldKind.INSTANCE);
                 } else if (insn instanceof LdcInsnNode) {
                     LdcInsnNode l = (LdcInsnNode)insn;
                     if (l.cst instanceof Type) {
@@ -276,7 +276,7 @@ public class ReferenceAnalyzer {
                             minfo.addReferencedClass(hBSM.getOwner());
                             minfo.addInstantiatedClass(hBSM.getOwner());
                         }
-                        minfo.addCallSite(hBSM.getOwner(), hBSM.getName(), hBSM.getDesc(), CallKind.DYNAMIC);
+                        minfo.addCallSite(hBSM.getOwner(), hBSM.getName(), hBSM.getDesc(), CallKind.DYNAMIC, i);
                     } else {
                         System.out.println("indy name " + indy.name + " desc " + indy.desc);
                         System.out.println("  handle " + h.getOwner() + " " + h.getName() + " " + h.getDesc());

@@ -1,5 +1,7 @@
 package org.eclipse.openj9.jmin.util;
 
+import org.eclipse.openj9.jmin.info.ClassSource;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,16 +28,20 @@ public class HierarchyContext {
         classInterfaces = new HashMap<String, String[]>();
     }
 
-    public boolean addClassToJarMapping(String clazz, String jar) {
+    public boolean addClassToJarMapping(String clazz, ClassSource source) {
         assert !closureComputed : "Cannot alter the hierarchy after computing the closure of data structures for quering";
         if (!clazzToJar.containsKey(clazz)) {
-            clazzToJar.put(clazz, jar);
+            clazzToJar.put(clazz, source);
             return true;
         }
         return false;
     }
 
     public String getJarForClass(String clazz) {
+        return clazzToJar.get(clazz).getJarFile();
+    }
+
+    public ClassSource getSourceForClass(String clazz) {
         return clazzToJar.get(clazz);
     }
 
@@ -138,6 +144,7 @@ public class HierarchyContext {
                 subMap.get(s).add(c);
             }
         }
+        //System.out.println("Number of subclasses of Object: " + subMap.get("java/lang/Object").size());
         
         // construct closure of interfaces
         for (String c : superMap.keySet()) {

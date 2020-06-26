@@ -11,20 +11,11 @@ import org.eclipse.openj9.jmin.info.MethodInfo;
 import org.eclipse.openj9.jmin.info.ReferenceInfo;
 
 public class WorkList {
-    private String reductionMode;
-    private String inclusionMode;
     private HierarchyContext context;
     private ReferenceInfo info;
     private LinkedList<WorkItem> worklist;
 
-    public WorkList(String reductionMode, ReferenceInfo info, HierarchyContext context) {
-        this.reductionMode = reductionMode.intern();
-        this.inclusionMode = System.getProperty(JMin.INCLUSION_MODE_PROPERTY_NAME);
-        if (this.inclusionMode == null) {
-            this.inclusionMode = "instantiation";
-        } else {
-            this.inclusionMode = this.inclusionMode.intern();
-        }
+    public WorkList(ReferenceInfo info, HierarchyContext context) {
         this.worklist = new LinkedList<WorkItem>();
         this.context = context;
         this.info = info;
@@ -62,7 +53,7 @@ public class WorkList {
             }
         }
 
-        if (reductionMode != "field") {
+        if (Config.reductionMode != Config.REDUCTION_MODE_FIELD) {
             for (FieldInfo field : cinfo.getFields()) {
                 if (!field.referenced()) {
                     field.setReferenced();
@@ -103,7 +94,7 @@ public class WorkList {
                 }
             }
 
-            if (inclusionMode == "instantiation") {
+            if (Config.inclusionMode == Config.INCLUSION_MODE_INSTANTIATE) {
                 processMethods(clazz);
             }
         }
@@ -153,7 +144,7 @@ public class WorkList {
                 }
             }
 
-            if (inclusionMode == "reference") {
+            if (Config.inclusionMode == Config.INCLUSION_MODE_REFERENCE) {
                 processMethods(clazz);
             }
         }
@@ -194,8 +185,8 @@ public class WorkList {
         processMethod(clazz, name, desc);
         if (context.getSubClasses(clazz) != null) {
             for (String c : context.getSubClasses(clazz)) {
-                if ((inclusionMode == "reference" && info.isClassReferenced(c))
-                    || (inclusionMode == "instantiation" && info.isClassInstantiated(c))) {
+                if ((Config.inclusionMode == Config.INCLUSION_MODE_REFERENCE && info.isClassReferenced(c))
+                    || (Config.inclusionMode == Config.INCLUSION_MODE_REFERENCE && info.isClassInstantiated(c))) {
                     processMethod(c, name, desc);
                 }
             }
@@ -205,8 +196,8 @@ public class WorkList {
     public void processInterfaceMethod(String clazz, String name, String desc) {
         processMethod(clazz, name, desc);
         for (String i : context.getInterfaceImplementors(clazz)) {
-            if ((inclusionMode == "reference" && info.isClassReferenced(i))
-                || (inclusionMode == "instantiation" && info.isClassInstantiated(i))) {
+            if ((Config.inclusionMode == Config.INCLUSION_MODE_REFERENCE && info.isClassReferenced(i))
+                || (Config.inclusionMode == Config.INCLUSION_MODE_INSTANTIATE && info.isClassInstantiated(i))) {
                 processMethod(i, name, desc);
             }
         }
