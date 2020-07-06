@@ -1,7 +1,5 @@
 package org.eclipse.openj9.jmin.info;
 
-import org.objectweb.asm.tree.MethodNode;
-
 import java.util.*;
 
 public class ClassInfo {

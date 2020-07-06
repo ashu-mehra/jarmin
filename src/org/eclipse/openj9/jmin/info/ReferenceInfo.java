@@ -19,7 +19,7 @@ public class ReferenceInfo {
     public ReferenceInfo() {
         classInfo = new HashMap<String, ClassInfo>();
         reflectionCallers = new ArrayList<MethodInfo>();
-        overriddenMethods = new HashMap();
+        overriddenMethods = new HashMap<String, LinkedList<MethodInfo>>();
     }
 
     public List<ClassInfo> getClassInfoList() {
@@ -163,7 +163,7 @@ public class ReferenceInfo {
         return overriddenMethods.get(key);
     }
 
-    public void addToOverriddenMethodMap(String calleeClass, String calleeName, String calleeDesc, LinkedList overriddenMethodsList) {
+    public void addToOverriddenMethodMap(String calleeClass, String calleeName, String calleeDesc, LinkedList<MethodInfo> overriddenMethodsList) {
         String key = createKey(calleeClass, calleeName, calleeDesc);
         overriddenMethods.put(key, overriddenMethodsList);
     }
@@ -179,7 +179,7 @@ public class ReferenceInfo {
         if (calleeList == null) {
             MethodInfo callee = findMethodInfoForMethod(context, calleeClass, calleeName, calleeDesc);
             if (callee != null) {
-                final LinkedList overriddenList = new LinkedList();
+                final LinkedList<MethodInfo> overriddenList = new LinkedList<MethodInfo>();
                 overriddenList.add(callee);
                 if (callSite.kind == VIRTUAL || callSite.kind == INTERFACE) {
                     ClassInfoVisitor visitor = clazz -> {

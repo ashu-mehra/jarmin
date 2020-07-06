@@ -220,7 +220,6 @@ public class JMin {
         FileSystem fs = FileSystems.getDefault();
         File targetDir = new File("." + File.separator + "minimized_jars");
         targetDir.mkdirs();
-        int totalCount = 0;
         for (String jar : jarsToProcess) {
             Path path = fs.getPath(jar);
             String jarname = path.getFileName().toString();
@@ -231,8 +230,6 @@ public class JMin {
             JarOutputStream jout = man != null ? new JarOutputStream(new FileOutputStream(dest), man) : new JarOutputStream(new FileOutputStream(dest));
             byte[] buffer = new byte[512];
             ZipEntry entry = jin.getNextEntry();
-            int jarFilesCount = 0;
-            int jarClassCount = 0;
             while (entry != null) {
                 boolean isWhitelisted = false;
                 for (String pattern : jdkWhitelist) {

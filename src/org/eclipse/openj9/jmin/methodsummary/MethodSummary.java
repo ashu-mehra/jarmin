@@ -1,7 +1,5 @@
 package org.eclipse.openj9.jmin.methodsummary;
 
-import org.eclipse.openj9.jmin.analysis.ParameterValue;
-import org.eclipse.openj9.jmin.analysis.StringBuilderValue;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
 import java.util.ArrayList;
@@ -13,7 +11,7 @@ public class MethodSummary {
 
     public void addInstantiatedValue(BasicValue iv) {
         if (instantiatedValues == null) {
-            instantiatedValues = new ArrayList();
+            instantiatedValues = new ArrayList<BasicValue>();
         } else {
             for (BasicValue bv : instantiatedValues) {
                 if (bv.equals(iv)) return;

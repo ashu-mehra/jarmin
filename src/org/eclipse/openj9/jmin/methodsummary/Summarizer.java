@@ -22,8 +22,8 @@ public class Summarizer {
     }
 
     public Summarizer(ReferenceInfo info, HierarchyContext context) {
-        methodsToSummarize = new ArrayList();
-        methodsToSummarizeSet = new HashSet();
+        methodsToSummarize = new ArrayList<MethodInfo>();
+        methodsToSummarizeSet = new HashSet<MethodInfo>();
         for (MethodInfo m: info.getReflectionCallers()) {
             if (!methodsToSummarizeSet.contains(m)) {
                 methodsToSummarize.add(m);

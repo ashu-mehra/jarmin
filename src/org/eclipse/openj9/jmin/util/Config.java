@@ -1,7 +1,5 @@
 package org.eclipse.openj9.jmin.util;
 
-import org.eclipse.openj9.JMin;
-
 public class Config {
     public static final String REDUCTION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.reduction_mode";
     public static final String INCLUSION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.inclusion_mode";

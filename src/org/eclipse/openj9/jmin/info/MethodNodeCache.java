@@ -1,6 +1,5 @@
 package org.eclipse.openj9.jmin.info;
 
-import org.eclipse.openj9.jmin.analysis.CallSiteArgumentAnalyzer;
 import org.eclipse.openj9.jmin.util.HierarchyContext;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
@@ -9,7 +8,6 @@ import org.objectweb.asm.tree.MethodNode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.jar.JarFile;
 
@@ -21,7 +19,7 @@ public class MethodNodeCache {
 
     public MethodNodeCache(HierarchyContext context) {
         this.context = context;
-        methodNameToNodeMap = new HashMap();
+        methodNameToNodeMap = new HashMap<String, MethodNode>();
     }
 
     public void cacheMethodNodes(String clazz) {

@@ -1,7 +1,6 @@
 package org.eclipse.openj9.jmin.info;
 
 import org.eclipse.openj9.jmin.methodsummary.MethodSummary;
-import org.objectweb.asm.tree.MethodNode;
 
 import java.util.ArrayList;
 import java.util.HashSet;
