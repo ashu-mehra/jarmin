@@ -13,7 +13,7 @@ public class Config {
 
     /* Valid values for inclusionMode */
     public static final int INCLUSION_MODE_REFERENCE = 1;
-    public static final int INCLUSION_MODE_INSTANTIATE = 1;
+    public static final int INCLUSION_MODE_INSTANTIATE = 2;
 
     public static int reductionMode;
     public static int inclusionMode;
