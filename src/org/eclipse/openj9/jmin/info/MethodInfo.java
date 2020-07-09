@@ -53,7 +53,7 @@ public class MethodInfo {
         return this.processed;
     }
     public void addCallSite(String clazz, String name, String desc, CallKind kind, int instuctionIndex) {
-        callsites.add(new CallSite(this, clazz, name, desc, kind, instuctionIndex));
+        callsites.add(new CallSite(this, clazz.replace('.', '/'), name, desc, kind, instuctionIndex));
     }
     public void addCaller(CallSite callSite) {
         callers.add(callSite);

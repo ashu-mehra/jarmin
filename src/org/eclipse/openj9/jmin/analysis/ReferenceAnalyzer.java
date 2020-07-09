@@ -192,6 +192,7 @@ public class ReferenceAnalyzer {
                         minfo.addCallSite(m.owner, m.name, m.desc, CallKind.STATIC, i);
 
                     } else if (insn.getOpcode() == INVOKEVIRTUAL) {
+                        String name = m.name;
                         String desc = m.desc;
                         String clazz = m.owner;
                         if (m.owner.equals("java/lang/reflect/Method")
@@ -201,6 +202,7 @@ public class ReferenceAnalyzer {
                             if (arg != null && arg instanceof MethodValue) {
                                 MethodValue mv = (MethodValue)arg;
                                 clazz = mv.getClazz();
+                                name = mv.getName();
                                 desc = "*";
                             }
                         }
@@ -220,7 +222,7 @@ public class ReferenceAnalyzer {
                             }
                             info.addReflectionCaller(minfo);
                         }
-                        minfo.addCallSite(clazz, m.name, desc, CallKind.VIRTUAL, i);
+                        minfo.addCallSite(clazz, name, desc, CallKind.VIRTUAL, i);
 
                     } else if (insn.getOpcode() == INVOKEINTERFACE) {
                         minfo.addCallSite(m.owner, m.name, m.desc, CallKind.INTERFACE, i);
