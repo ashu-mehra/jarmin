@@ -64,7 +64,17 @@ public class ReflectionInterpreter extends BasicInterpreter {
                     return new ClassValue(((StringValue) values.get(0)).getContents());
                 }
             } else if (m.getOpcode() == INVOKEVIRTUAL) {
-                if (m.owner.equals("java/lang/Class")) {
+                /* TODO: Relying on just method name and signature is not entirely correct,
+                 * and can result in false positives.
+                 * We need a way to identify all class loaders and handle loadClass() method
+                 * of such classes only.
+                 */
+                if (m.name.equals("loadClass")
+                        && m.desc.equals("(Ljava/lang/String;)Ljava/lang/Class;")
+                        && values.get(1) instanceof StringValue
+                        && ((StringValue) values.get(1)).getContents() != null) {
+                    return new ClassValue(((StringValue) values.get(1)).getContents());
+                } else if (m.owner.equals("java/lang/Class")) {
                     if ((m.name.equals("getMethod") || m.name.equals("getDeclaredMethod"))
                             && m.desc.equals("(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;")
                             && values.get(0) instanceof ClassValue
