@@ -37,12 +37,12 @@ public class NonLoadingClassWriter extends ClassWriter {
         }
         List<String> deeper = null;
         List<String> shallower = null;
-        int deeperOffset = -1;
+        int deeperOffset = 0;
         if (supers1.size() > supers2.size()) {
             deeper = supers1;
             shallower = supers2;
             deeperOffset = deeper.size() - shallower.size();
-            if (deeper.get(deeperOffset -1).equals(type2)) {
+            if (deeper.get(deeperOffset - 1).equals(type2)) {
                 return type2;
             }
         } else if (supers1.size() < supers2.size()) {
