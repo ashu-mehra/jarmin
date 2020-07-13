@@ -6,6 +6,7 @@ public class Config {
     public static final String TRACE_PROPERTY_NAME = "org.eclipse.openj9.jmin.trace";
     public static final String ENABLE_METHOD_SUMMARY = "org.eclipse.openj9.jmin.method_summary.enable";
     public static final String ENABLE_TYPE_REFINEMENT = "org.eclipse.openj9.jmin.type_refinement.enable";
+    public static final String ENABLE_INNER_JAR_PROCESSING = "org.eclipse.openj9.jmin.inner_jar_processing.enable";
 
     /* Valid values for reductionMode */
     public static final int REDUCTION_MODE_CLASS = 1;
@@ -21,6 +22,7 @@ public class Config {
     public static boolean enableMethodSummary;
     public static boolean enableTypeRefinement;
     public static boolean trace;
+    public static boolean enableInnerJarProcessing;
 
     public static void setGlobalConfig() {
         reductionMode = REDUCTION_MODE_CLASS;
@@ -56,6 +58,12 @@ public class Config {
         String typeRefinement = System.getProperty(ENABLE_TYPE_REFINEMENT);
         if (typeRefinement != null && typeRefinement.equalsIgnoreCase("false")) {
             enableTypeRefinement = false;
+        }
+
+        enableInnerJarProcessing = true;
+        String innerJarProcessing = System.getProperty(ENABLE_INNER_JAR_PROCESSING);
+        if (innerJarProcessing != null && innerJarProcessing.equalsIgnoreCase("false")) {
+            enableInnerJarProcessing = false;
         }
     }
 

@@ -1,6 +1,7 @@
 package org.eclipse.openj9.jmin.info;
 
 import org.eclipse.openj9.jmin.util.HierarchyContext;
+import org.eclipse.openj9.jmin.util.JarFileUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -9,7 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.jar.JarFile;
 
 import static org.objectweb.asm.Opcodes.ASM8;
 
@@ -25,11 +25,7 @@ public class MethodNodeCache {
     public void cacheMethodNodes(String clazz) {
         ClassSource source = context.getSourceForClass(clazz);
         if (source != null) {
-            String jarFile = source.getJarFile();
-            String entryName = source.getJarFileEntry();
-            try (JarFile jar = new JarFile(jarFile);
-                 InputStream is = jar.getInputStream(jar.getJarEntry(entryName));
-            ) {
+            try (InputStream is = JarFileUtils.getJarEntryInputStream(source.getJarFile(), source.getJarFileEntry())) {
                 ClassReader cr = new ClassReader(is);
                 cr.accept(new MethodNodeLocator(clazz), ClassReader.SKIP_DEBUG);
             } catch (IOException e) {
