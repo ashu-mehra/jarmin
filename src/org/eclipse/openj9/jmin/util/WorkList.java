@@ -105,6 +105,7 @@ public class WorkList {
             info.addClass(c).setReferenced();
             if (info.getClassInfo(c).hasMethod("<clinit>", "()V") 
                 && !info.getClassInfo(c).isMethodReferenced("<clinit>", "()V")) {
+                info.getClassInfo(c).markMethodReferenced("<clinit>", "()V");
                 worklist.add(new WorkItem(c, "<clinit>", "()V"));
             }
 
