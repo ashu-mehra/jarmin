@@ -195,7 +195,18 @@ public class ReferenceAnalyzer {
                         String name = m.name;
                         String desc = m.desc;
                         String clazz = m.owner;
-                        if (m.owner.equals("java/lang/reflect/Method")
+                        /* TODO: Relying on just method name and signature is not entirely correct,
+                         * and can result in false positives.
+                         * We need a way to identify all class loaders and handle loadClass() method
+                         * of such classes only.
+                         */
+                        if (m.name.equals("loadClass")
+                            && m.desc.equals("(Ljava/lang/String;)Ljava/lang/Class;")) {
+                            BasicValue arg = analysisFrames.getStackValue(i, 0);
+                            if (arg != null && arg instanceof StringValue && ((StringValue)arg).getContents() != null) {
+                                minfo.addReferencedClass(((StringValue) arg).getContents());
+                            }
+                        } else if (m.owner.equals("java/lang/reflect/Method")
                             && m.name.equals("invoke")
                             && m.desc.equals("(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")) {
                             BasicValue arg = analysisFrames.getStackValue(i, 2);
