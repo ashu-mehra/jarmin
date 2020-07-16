@@ -77,7 +77,6 @@ public class HierarchyContext {
     }
 
     public List<String> getSuperClasses(String clazz) {
-        assert closureComputed : "Cannot call for hierarchy information before closure computation is complete";
         if (superMap.containsKey(clazz)) {
             return superMap.get(clazz);
         }
