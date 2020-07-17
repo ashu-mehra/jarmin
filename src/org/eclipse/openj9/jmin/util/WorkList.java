@@ -187,7 +187,7 @@ public class WorkList {
         if (context.getSubClasses(clazz) != null) {
             for (String c : context.getSubClasses(clazz)) {
                 if ((Config.inclusionMode == Config.INCLUSION_MODE_REFERENCE && info.isClassReferenced(c))
-                    || (Config.inclusionMode == Config.INCLUSION_MODE_REFERENCE && info.isClassInstantiated(c))) {
+                    || (Config.inclusionMode == Config.INCLUSION_MODE_INSTANTIATE && info.isClassInstantiated(c))) {
                     processMethod(c, name, desc);
                 }
             }
