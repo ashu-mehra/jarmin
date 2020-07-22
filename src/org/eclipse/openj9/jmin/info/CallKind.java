@@ -5,5 +5,6 @@ public enum CallKind {
     INTERFACE,
     STATIC,
     SPECIAL,
-    DYNAMIC
+    DYNAMIC,
+    FIXED
 }

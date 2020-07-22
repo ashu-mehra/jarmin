@@ -2,7 +2,9 @@ package org.eclipse.openj9.jmin.analysis;
 
 import org.eclipse.openj9.JMin;
 import org.eclipse.openj9.jmin.info.*;
+import org.eclipse.openj9.jmin.util.Config;
 import org.eclipse.openj9.jmin.util.HierarchyContext;
+import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicValue;
 import org.objectweb.asm.tree.analysis.Frame;
@@ -139,7 +141,7 @@ public class ReferenceAnalyzer {
                 }
             }
         }
-        AnalysisFrames analysisFrames = new AnalysisFrames(owner, mn);
+        AnalysisFrames analysisFrames = new AnalysisFrames(context, owner, mn);
         AbstractInsnNode[] insns = mn.instructions.toArray();
         for (int i = 0; i < insns.length; ++i) {
             AbstractInsnNode insn = insns[i];
@@ -233,10 +235,38 @@ public class ReferenceAnalyzer {
                             }
                             info.addReflectionCaller(minfo);
                         }
-                        minfo.addCallSite(clazz, name, desc, CallKind.VIRTUAL, i);
+                        BasicValue receiver = analysisFrames.getReceiverValue(i, Type.getArgumentTypes(m.desc).length);
+                        CallKind kind = CallKind.VIRTUAL;
+                        if (receiver != null) {
+                            if (receiver instanceof TypeValue || receiver instanceof FixedTypeValue) {
+                                String refinedClazz = receiver.getType().getInternalName();
+                                if (!refinedClazz.equals(clazz)) {
+                                    clazz = refinedClazz;
+                                }
+                            }
+                            if (receiver instanceof FixedTypeValue) {
+                                kind = CallKind.FIXED;
+                            }
+                        }
+                        minfo.addCallSite(clazz, m.name, desc, kind, i);
 
                     } else if (insn.getOpcode() == INVOKEINTERFACE) {
-                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.INTERFACE, i);
+                        String clazz = m.owner;
+                        CallKind kind = CallKind.INTERFACE;
+                        BasicValue receiver = analysisFrames.getReceiverValue(i, Type.getArgumentTypes(m.desc).length);
+                        if (receiver != null) {
+                            if (receiver instanceof TypeValue || receiver instanceof FixedTypeValue) {
+                                String refinedClazz = receiver.getType().getInternalName();
+                                if (!refinedClazz.equals(clazz)) {
+                                    clazz = refinedClazz;
+                                    kind = CallKind.VIRTUAL;
+                                }
+                            }
+                            if (receiver instanceof FixedTypeValue) {
+                                kind = CallKind.FIXED;
+                            }
+                        }
+                        minfo.addCallSite(clazz, m.name, m.desc, kind, i);
                     } else {
                         minfo.addCallSite(m.owner, m.name, m.desc, CallKind.SPECIAL, i);
                     }
@@ -306,9 +336,12 @@ public class ReferenceAnalyzer {
 
 class AnalysisFrames {
     private Frame<BasicValue>[] frames;
+    private Frame<BasicValue>[] typeFrames;
+    private HierarchyContext context;
     private String owner;
     private MethodNode mn;
-    public AnalysisFrames(String owner, MethodNode mn) {
+    public AnalysisFrames(HierarchyContext context, String owner, MethodNode mn) {
+        this.context = context;
         this.owner = owner;
         this.mn = mn;
     }
@@ -319,6 +352,27 @@ class AnalysisFrames {
             frames = a.getFrames();
         }
         Frame<BasicValue> f = frames[instructionIndex];
+        if (f == null) {
+            return null;
+        }
+        int top = f.getStackSize() - 1;
+        return frameIndex <= top ? f.getStack(top - frameIndex) : null;
+    }
+    public BasicValue getReceiverValue(int instructionIndex, int frameIndex) throws AnalyzerException {
+        // Note: using the type interpreter here during the first pass over the classes can result
+        // in less preise type information than we otherwise would be able to have if the hierarchy
+        // was fully built. We have to be careful how we use the context info, but this use should be
+        // safe and helps even if we don't manage to limit the types for every callsite as much as we
+        // might otherwise.
+        if (!Config.enableTypeRefinement) {
+            return null;
+        }
+        if (typeFrames == null) {
+            Analyzer<BasicValue> a = new Analyzer<BasicValue>(new TypeInterpreter(context));
+            a.analyze(owner, mn);
+            typeFrames = a.getFrames();
+        }
+        Frame<BasicValue> f = typeFrames[instructionIndex];
         if (f == null) {
             return null;
         }

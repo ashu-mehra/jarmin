@@ -5,6 +5,7 @@ public class Config {
     public static final String INCLUSION_MODE_PROPERTY_NAME = "org.eclipse.openj9.jmin.inclusion_mode";
     public static final String TRACE_PROPERTY_NAME = "org.eclipse.openj9.jmin.trace";
     public static final String ENABLE_METHOD_SUMMARY = "org.eclipse.openj9.jmin.method_summary.enable";
+    public static final String ENABLE_TYPE_REFINEMENT = "org.eclipse.openj9.jmin.type_refinement.enable";
 
     /* Valid values for reductionMode */
     public static final int REDUCTION_MODE_CLASS = 1;
@@ -18,6 +19,7 @@ public class Config {
     public static int reductionMode;
     public static int inclusionMode;
     public static boolean enableMethodSummary;
+    public static boolean enableTypeRefinement;
     public static boolean trace;
 
     public static void setGlobalConfig() {
@@ -49,6 +51,12 @@ public class Config {
         if (methodSummary != null && methodSummary.equalsIgnoreCase("false")) {
             enableMethodSummary = false;
         }
+
+        enableTypeRefinement = true;
+        String typeRefinement = System.getProperty(ENABLE_TYPE_REFINEMENT);
+        if (typeRefinement != null && typeRefinement.equalsIgnoreCase("false")) {
+            enableTypeRefinement = false;
+        }
     }
 
     public static boolean validateProperties() {
@@ -70,5 +78,6 @@ public class Config {
         System.out.println("\tInclusion mode: " + inclusionMode);
         System.out.println("\tTrace mode: " + trace);
         System.out.println("\tMethod summary enabled: " + enableMethodSummary);
+        System.out.println("\tType refinement enabled: " + enableTypeRefinement);
     }
 }

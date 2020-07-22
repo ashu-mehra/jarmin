@@ -363,6 +363,7 @@ public class JMin {
                     case SPECIAL:
                     case STATIC:
                     case DYNAMIC:
+                    case FIXED:
                         worklist.processMethod(call.clazz, call.name, desc);
                         break;
                     default:
@@ -407,6 +408,9 @@ public class JMin {
         System.out.println("  = true (verbose output will be printed to stdout)");
         System.out.println("  = false (only impotant diagnostic output will be printed to stdout) [default]");
         System.out.println("Set " + Config.ENABLE_METHOD_SUMMARY + " to enable method summary to locate classes used via reflection: ");
+        System.out.println("  = true [default]");
+        System.out.println("  = false");
+        System.out.println("Set " + Config.ENABLE_TYPE_REFINEMENT + " to enable type analysis of callsites to reduce the number of included classes: ");
         System.out.println("  = true [default]");
         System.out.println("  = false");
    }
