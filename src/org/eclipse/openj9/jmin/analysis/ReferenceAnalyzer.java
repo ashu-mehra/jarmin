@@ -197,6 +197,7 @@ public class ReferenceAnalyzer {
                         String name = m.name;
                         String desc = m.desc;
                         String clazz = m.owner;
+                        boolean doTypeAnalysis = true;
                         /* TODO: Relying on just method name and signature is not entirely correct,
                          * and can result in false positives.
                          * We need a way to identify all class loaders and handle loadClass() method
@@ -217,6 +218,10 @@ public class ReferenceAnalyzer {
                                 clazz = mv.getClazz();
                                 name = mv.getName();
                                 desc = "*";
+                                /* Type analysis should not be done in this case as the the callee has been changed to reflect
+                                 * the actual method to be invoked by j.l.r.Method.invoke().
+                                 */
+                                doTypeAnalysis = false;
                             }
                         }
                         else if (m.owner.equals("java/lang/Class")
@@ -235,20 +240,22 @@ public class ReferenceAnalyzer {
                             }
                             info.addReflectionCaller(minfo);
                         }
-                        BasicValue receiver = analysisFrames.getReceiverValue(i, Type.getArgumentTypes(m.desc).length);
                         CallKind kind = CallKind.VIRTUAL;
-                        if (receiver != null) {
-                            if (receiver instanceof TypeValue || receiver instanceof FixedTypeValue) {
-                                String refinedClazz = receiver.getType().getInternalName();
-                                if (!refinedClazz.equals(clazz)) {
-                                    clazz = refinedClazz;
+                        if (doTypeAnalysis) {
+                            BasicValue receiver = analysisFrames.getReceiverValue(i, Type.getArgumentTypes(m.desc).length);
+                            if (receiver != null) {
+                                if (receiver instanceof TypeValue || receiver instanceof FixedTypeValue) {
+                                    String refinedClazz = receiver.getType().getInternalName();
+                                    if (!refinedClazz.equals(clazz)) {
+                                        clazz = refinedClazz;
+                                    }
+                                }
+                                if (receiver instanceof FixedTypeValue) {
+                                    kind = CallKind.FIXED;
                                 }
                             }
-                            if (receiver instanceof FixedTypeValue) {
-                                kind = CallKind.FIXED;
-                            }
                         }
-                        minfo.addCallSite(clazz, m.name, desc, kind, i);
+                        minfo.addCallSite(clazz, name, desc, kind, i);
 
                     } else if (insn.getOpcode() == INVOKEINTERFACE) {
                         String clazz = m.owner;
