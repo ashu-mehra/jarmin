@@ -9,8 +9,9 @@ public class CallSite {
     public final String desc;
     public final CallKind kind;
     public final int instructionIndex;
+    private ClassSource classSource;
     private BasicValue[] argValueList;
-    public CallSite(MethodInfo caller, String clazz, String name, String desc, CallKind kind, int instructionIndex) {
+    public CallSite(MethodInfo caller, String clazz, String name, String desc, CallKind kind, int instructionIndex, ClassSource classSource) {
         //if (clazz.equals("com/arjuna/ats/internal/jta/Implementationsx"))
         //throw new RuntimeException();
         this.caller = caller;
@@ -19,6 +20,7 @@ public class CallSite {
         this.desc = new String(desc.toCharArray());
         this.kind = kind;
         this.instructionIndex = instructionIndex;
+        this.classSource = classSource;
         this.argValueList = null;
     }
 
@@ -43,5 +45,9 @@ public class CallSite {
     @Override
     public String toString() {
         return "CallSite " + kind.toString() + ": " + clazz + "." + name + desc;
+    }
+
+    public ClassSource getClassSource() {
+        return classSource;
     }
 }

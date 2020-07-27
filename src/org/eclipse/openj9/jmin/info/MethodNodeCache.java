@@ -22,40 +22,39 @@ public class MethodNodeCache {
         methodNameToNodeMap = new HashMap<String, MethodNode>();
     }
 
-    public void cacheMethodNodes(String clazz) {
-        ClassSource source = context.getSourceForClass(clazz);
-        if (source != null) {
-            try (InputStream is = JarFileUtils.getJarEntryInputStream(source.getJarFile(), source.getJarFileEntry())) {
-                ClassReader cr = new ClassReader(is);
-                cr.accept(new MethodNodeLocator(clazz), ClassReader.SKIP_DEBUG);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    public void cacheMethodNodes(String clazz, ClassSource classSource) {
+        try (InputStream is = JarFileUtils.getJarEntryInputStream(classSource.getJarFile(), classSource.getJarFileEntry())) {
+            ClassReader cr = new ClassReader(is);
+            cr.accept(new MethodNodeLocator(clazz, classSource), ClassReader.SKIP_DEBUG);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-    private String createKey(String clazz, String name, String desc) {
-        return clazz+name+desc;
+    private String createKey(String jarFile, String jarFileEntry,String clazz, String name, String desc) {
+        return jarFile+jarFileEntry+clazz+name+desc;
     }
 
-    public MethodNode getMethodNode(MethodInfo minfo) {
-        String key = createKey(minfo.clazz(), minfo.name(), minfo.desc());
+    public MethodNode getMethodNode(MethodInfo minfo, ClassSource classSource) {
+        String key = createKey(classSource.getJarFile(), classSource.getJarFileEntry(), minfo.clazz(), minfo.name(), minfo.desc());
         if (!methodNameToNodeMap.containsKey(key)) {
-            cacheMethodNodes(minfo.clazz());
+            cacheMethodNodes(minfo.clazz(), classSource);
         }
         return methodNameToNodeMap.get(key);
     }
 
     private class MethodNodeLocator extends ClassNode {
         private String clazz;
+        private ClassSource classSource;
 
-        MethodNodeLocator(String clazz) {
+        MethodNodeLocator(String clazz, ClassSource classSource) {
             super(ASM8);
             this.clazz = clazz;
+            this.classSource = classSource;
         }
         public void visitEnd() {
             for (MethodNode mn : methods) {
-                methodNameToNodeMap.put(createKey(clazz, mn.name, mn.desc), mn);
+                methodNameToNodeMap.put(createKey(classSource.getJarFile(), classSource.getJarFileEntry(), clazz, mn.name, mn.desc), mn);
             }
             super.visitEnd();
         }

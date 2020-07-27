@@ -125,11 +125,8 @@ public class JMin {
         while (ze != null) {
             String entryName = ze.getName();
             if (entryName.endsWith(".class") && !entryName.endsWith("module-info.class")) {
-                String className = entryName.substring(0, entryName.length() - 6);
-                if (!info.hasClass(className)) {
-                    ClassReader cr = new ClassReader(jin);
-                    cr.accept(ReferenceAnalyzer.getReferenceInfoProcessor(new ClassSource(jar, entryName), info, context), ClassReader.SKIP_DEBUG);
-                }
+                ClassReader cr = new ClassReader(jin);
+                cr.accept(ReferenceAnalyzer.getReferenceInfoProcessor(new ClassSource(jar, entryName), info, context), ClassReader.SKIP_DEBUG);
             } else if (!ze.isDirectory() && entryName.startsWith("META-INF/services/") && !entryName.endsWith(".class")) {
                 System.out.println("Found service entry " + entryName);
                 String serviceName = entryName.substring("META-INF/services/".length());
