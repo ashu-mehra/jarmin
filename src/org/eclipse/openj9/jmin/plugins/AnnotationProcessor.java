@@ -12,7 +12,6 @@ import org.eclipse.openj9.jmin.util.HierarchyContext;
 import org.eclipse.openj9.jmin.util.WorkList;
 
 public class AnnotationProcessor extends ClassVisitor {
-    private String clazz;
     private boolean matched;
     boolean trace;
     protected String[] classAnnotations;
@@ -22,7 +21,9 @@ public class AnnotationProcessor extends ClassVisitor {
     protected String[] fieldAnnotations;
     protected String[] prefixes;
     protected WorkList worklist;
-    HierarchyContext context;
+    protected String clazz;
+    protected ReferenceInfo info;
+    protected HierarchyContext context;
     public AnnotationProcessor(WorkList worklist, HierarchyContext context, ReferenceInfo info, ClassVisitor next) {
         super(ASM8, next);
         this.worklist = worklist;
@@ -32,6 +33,7 @@ public class AnnotationProcessor extends ClassVisitor {
         this.methodParameterAnnotations = new String[0];
         this.fieldAnnotations = new String[0];
         this.prefixes = new String[0];
+        this.info = info;
         this.context = context;
     }  
     
