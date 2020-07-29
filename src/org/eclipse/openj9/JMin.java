@@ -14,8 +14,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.*;
 import java.util.jar.*;
 import java.util.zip.*;
 
@@ -95,7 +94,6 @@ public class JMin {
         context = new HierarchyContext();
         info = new ReferenceInfo();
         worklist = new WorkList(info, context);
-        
         processors = null;
         for (Class<?> proc : processorClasses) {
             try {
@@ -110,37 +108,7 @@ public class JMin {
 
         for (String jar : jars) {
             JarInputStream jin = new JarInputStream(new FileInputStream(jar));
-            ZipEntry ze = jin.getNextEntry();
-
-            while (ze != null) {
-                String entryName = ze.getName();
-                if (entryName.endsWith(".class") && !entryName.endsWith("module-info.class")) {
-                    String className = entryName.substring(0, entryName.length() - 6);
-                    if (!info.hasClass(className)) {
-                        ClassReader cr = new ClassReader(jin);
-                        cr.accept(ReferenceAnalyzer.getReferenceInfoProcessor(new ClassSource(jar, entryName), info, context), ClassReader.SKIP_DEBUG);
-                    }
-                } else if (!ze.isDirectory() && entryName.startsWith("META-INF/services/") && !entryName.endsWith(".class")) {
-                    System.out.println("Found service entry " + entryName);
-                    String serviceName = entryName.substring("META-INF/services".length());
-                    serviceName = serviceName.replace('.', '/');
-                    byte[] bytes = readEntry(jin);
-                    if (bytes != null) {
-                        BufferedReader reader = new BufferedReader(
-                                new InputStreamReader(new ByteArrayInputStream(bytes)));
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            line = line.trim();
-                            line = line.replace('.', '/');
-                            if (line.length() > 0 && line.charAt(0) != '#') {
-                                context.addServiceMap(serviceName, line);
-                            }
-                        }
-                        reader.close();
-                    }
-                }
-                ze = jin.getNextEntry();
-            }
+            processJarFile(jar, jin);
             jin.close();
         }
 
@@ -150,6 +118,45 @@ public class JMin {
             Summarizer.createSummary(info, context);
         }
         worklist.processMethod(clazz, method, signature);
+    }
+
+    private void processJarFile(String jar, JarInputStream jin) throws IOException {
+        ZipEntry ze = jin.getNextEntry();
+        while (ze != null) {
+            String entryName = ze.getName();
+            if (entryName.endsWith(".class") && !entryName.endsWith("module-info.class")) {
+                String className = entryName.substring(0, entryName.length() - 6);
+                if (!info.hasClass(className)) {
+                    ClassReader cr = new ClassReader(jin);
+                    cr.accept(ReferenceAnalyzer.getReferenceInfoProcessor(new ClassSource(jar, entryName), info, context), ClassReader.SKIP_DEBUG);
+                }
+            } else if (!ze.isDirectory() && entryName.startsWith("META-INF/services/") && !entryName.endsWith(".class")) {
+                System.out.println("Found service entry " + entryName);
+                String serviceName = entryName.substring("META-INF/services/".length());
+                serviceName = serviceName.replace('.', '/');
+                byte[] bytes = readEntry(jin);
+                if (bytes != null) {
+                    BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(new ByteArrayInputStream(bytes)));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        line = line.trim();
+                        line = line.replace('.', '/');
+                        if (line.length() > 0 && line.charAt(0) != '#') {
+                            context.addServiceMap(serviceName, line);
+                        }
+                    }
+                    reader.close();
+                }
+            } else if (entryName.endsWith(".jar")) {
+                if (Config.enableInnerJarProcessing == true) {
+                    JarInputStream innerJarIStream = new JarInputStream(jin);
+                    processJarFile(jar + "!/" + entryName, innerJarIStream);
+                    // do not close innerJarIStream here as it would close backing stream as well.
+                }
+            }
+            ze = jin.getNextEntry();
+        }
     }
 
     private byte[] readEntry(InputStream is) {
@@ -208,15 +215,84 @@ public class JMin {
         jout.closeEntry();
     }
 
+    public int minimizeJarFile(String jar, JarInputStream jin, JarOutputStream jout) throws IOException {
+        int classCount = 0;
+        byte[] buffer = new byte[512];
+        ZipEntry entry = jin.getNextEntry();
+        System.out.println("Create minimized jar for " + jar);
+        while (entry != null) {
+            String entryName = entry.getName();
+            boolean isWhitelisted = false;
+            for (String pattern : jdkWhitelist) {
+                if (entryName.startsWith(pattern)) {
+                    isWhitelisted = true;
+                    break;
+                }
+            }
+            if (isWhitelisted
+                    || !entryName.endsWith(".class")
+                    || entryName.equals("class-info.class")) {
+                if (entryName.endsWith(".class") && !entryName.equals("class-info.class")) {
+                    classCount += 1;
+                }
+                if (entryName.endsWith(".jar")) {
+                    if (Config.enableInnerJarProcessing == true) {
+                        jout.putNextEntry(new ZipEntry(entryName));
+                        JarInputStream innerJarIStream = new JarInputStream(jin);
+                        Manifest man = innerJarIStream.getManifest();
+                        JarOutputStream innerJarOStream = man != null ? new JarOutputStream(jout, man) : new JarOutputStream(jout);
+                        classCount += minimizeJarFile(jar + "!/" + entryName, innerJarIStream, innerJarOStream);
+                        innerJarOStream.finish();
+                    }
+                } else if (!entryName.endsWith(".SF") && !entryName.endsWith(".RSA")) {
+                    copyFile(jin, jout, buffer, entry);
+                }
+            } else if (info.isClassReferenced(entryName.substring(0, entryName.length() - 6))) {
+                classCount += 1;
+                if (Config.reductionMode == Config.REDUCTION_MODE_CLASS) {
+                    copyFile(jin, jout, buffer, entry);
+                } else {
+                    BufferedInputStream bis = new BufferedInputStream(jin);
+                    if (entry.getSize() * 2 < Integer.MAX_VALUE - 1) {
+                        try {
+                            bis.mark((int) (entry.getSize() * 2) + 1);
+                            ClassReader cr = new ClassReader(bis);
+                            ClassWriter cw = new NonLoadingClassWriter(context, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+                            cr.accept(new FilteringClassWriterAdapter(Config.reductionMode, info, cw), 0);
+                            ZipEntry newEntry = new ZipEntry(entryName);
+                            jout.putNextEntry(newEntry);
+                            jout.write(cw.toByteArray());
+                            jout.closeEntry();
+                        } catch (Exception e) {
+                            bis.reset();
+                            System.out.println("Unable to minimize " + entryName + " - copying whole");
+                            System.out.println("Error " + e.getMessage());
+                            copyFile(bis, jout, buffer, entry);
+                        }
+                    } else {
+                        copyFile(jin, jout, buffer, entry);
+                    }
+                }
+            }
+            entry = jin.getNextEntry();
+        }
+        return classCount;
+    }
+
     public void minimizeJars() throws IOException {
         int classCount = 0;
         HashSet<String> jarsToProcess = new HashSet<String>();
         for (String clazz : context.seenClasses()) {
             if (info.isClassReferenced(clazz)) {
-                jarsToProcess.add(context.getJarForClass(clazz));
+                String jar = context.getJarForClass(clazz);
+                if (jar.contains("!/")) {
+                    jarsToProcess.add(jar.substring(0, jar.indexOf("!/")));
+                } else {
+                    jarsToProcess.add(jar);
+                }
             }
         }
-        
+
         FileSystem fs = FileSystems.getDefault();
         File targetDir = new File("." + File.separator + "minimized_jars");
         targetDir.mkdirs();
@@ -225,59 +301,30 @@ public class JMin {
             String jarname = path.getFileName().toString();
             JarInputStream jin = new JarInputStream(new FileInputStream(jar));
             String dest = "." + File.separator + "minimized_jars" + File.separator + jarname;
-            System.out.println("Create minimized jar " + dest);
             Manifest man = jin.getManifest();
             JarOutputStream jout = man != null ? new JarOutputStream(new FileOutputStream(dest), man) : new JarOutputStream(new FileOutputStream(dest));
-            byte[] buffer = new byte[512];
-            ZipEntry entry = jin.getNextEntry();
-            while (entry != null) {
-                boolean isWhitelisted = false;
-                for (String pattern : jdkWhitelist) {
-                    if (entry.getName().startsWith(pattern)) {
-                        isWhitelisted = true;
-                        break;
-                    }
-                }
-                if (isWhitelisted
-                        || !entry.getName().endsWith(".class")
-                        || entry.getName().equals("class-info.class")) {
-                    if (entry.getName().endsWith(".class") && !entry.getName().equals("class-info.class")) {
-                        classCount += 1;
-                    }
-                    copyFile(jin, jout, buffer, entry);
-                } else if (info.isClassReferenced(entry.getName().substring(0, entry.getName().length() - 6))) {
-                    classCount += 1;
-                    if (Config.reductionMode == Config.REDUCTION_MODE_CLASS) {
-                        copyFile(jin, jout, buffer, entry);
-                    } else {
-                        BufferedInputStream bis = new BufferedInputStream(jin);
-                        if (entry.getSize() * 2 < Integer.MAX_VALUE - 1) {
-                            try {
-                                bis.mark((int) (entry.getSize() * 2) + 1);
-                                ClassReader cr = new ClassReader(bis);
-                                ClassWriter cw = new NonLoadingClassWriter(context, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-                                cr.accept(new FilteringClassWriterAdapter(Config.reductionMode, info, cw), 0);
-                                ZipEntry newEntry = new ZipEntry(entry.getName());
-                                jout.putNextEntry(newEntry);
-                                jout.write(cw.toByteArray());
-                                jout.closeEntry();
-                            } catch (Exception e) {
-                                bis.reset();
-                                System.out.println("Unable to minimize " + entry.getName() + " - copying whole");
-                                System.out.println("Error " + e.getMessage());
-                                copyFile(bis, jout, buffer, entry);
-                            }
-                        } else {
-                            copyFile(jin, jout, buffer, entry);
-                        }
-                    }
-                }
-                entry = jin.getNextEntry();
-            }
+            classCount += minimizeJarFile(jar, jin, jout);
             jin.close();
             jout.close();
         }
         System.out.println("Total classes copied: " + classCount);
+    }
+
+    private void runProcessorsForJar(String jar, JarInputStream jin) throws IOException {
+        ZipEntry ze = jin.getNextEntry();
+
+        while (ze != null) {
+            String entryName = ze.getName();
+            if (entryName.endsWith(".class") && !entryName.endsWith("module-info.class")) {
+                ClassReader cr = new ClassReader(jin);
+                cr.accept(processors, ClassReader.SKIP_DEBUG);
+            } else if (entryName.endsWith(".jar")) {
+                JarInputStream innerJarIStream = new JarInputStream(jin);
+                runProcessorsForJar(jar + "!/" + entryName, innerJarIStream);
+                // do not close innerJarIStream here as it would close backing stream as well.
+            }
+            ze = jin.getNextEntry();
+        }
     }
 
     private void populateWorklist() throws IOException {
@@ -299,17 +346,8 @@ public class JMin {
 
         for (String jar : jars) {
             JarInputStream jin = new JarInputStream(new FileInputStream(jar));
-            ZipEntry ze = jin.getNextEntry();
-
-            while (ze != null) {
-                String entryName = ze.getName();
-                if (entryName.endsWith(".class") && !entryName.endsWith("module-info.class")) {
-                    entryName = entryName.substring(0, entryName.length() - 6);
-                    ClassReader cr = new ClassReader(jin);
-                    cr.accept(processors, ClassReader.SKIP_DEBUG);
-                }
-                ze = jin.getNextEntry();
-            }
+            runProcessorsForJar(jar, jin);
+            jin.close();
         }
     }
 
@@ -457,7 +495,6 @@ public class JMin {
         jmin.populateWorklist();
         System.out.println("Processing worklist...");
         jmin.processEntries();
-        //jmin.dumpInfo();
         jmin.minimizeJars();
     }
 }
