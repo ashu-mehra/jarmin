@@ -52,8 +52,8 @@ public class MethodInfo {
     public boolean processed() {
         return this.processed;
     }
-    public void addCallSite(String clazz, String name, String desc, CallKind kind, int instuctionIndex) {
-        callsites.add(new CallSite(this, clazz.replace('.', '/'), name, desc, kind, instuctionIndex));
+    public void addCallSite(String clazz, String name, String desc, CallKind kind, int instuctionIndex, ClassSource classSource) {
+        callsites.add(new CallSite(this, clazz.replace('.', '/'), name, desc, kind, instuctionIndex, classSource));
     }
     public void addCaller(CallSite callSite) {
         callers.add(callSite);

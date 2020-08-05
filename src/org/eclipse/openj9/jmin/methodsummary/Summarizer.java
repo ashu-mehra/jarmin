@@ -4,7 +4,6 @@ import org.eclipse.openj9.jmin.analysis.*;
 import org.eclipse.openj9.jmin.analysis.ClassValue;
 import org.eclipse.openj9.jmin.info.*;
 import org.eclipse.openj9.jmin.util.HierarchyContext;
-import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
 import java.util.ArrayList;
@@ -14,7 +13,7 @@ import java.util.List;
 public class Summarizer {
     private List<MethodInfo> methodsToSummarize;
     private HashSet<MethodInfo> methodsToSummarizeSet;
-    private final MethodNodeCache nodeCache;
+    private final CallSiteArgumentAnalyzer callSiteArgumentAnalyzer;
 
     public static void createSummary(ReferenceInfo info, HierarchyContext context) {
         Summarizer summarizer = new Summarizer(info, context);
@@ -30,7 +29,7 @@ public class Summarizer {
                 methodsToSummarizeSet.add(m);
             }
         }
-        nodeCache = new MethodNodeCache(context);
+        callSiteArgumentAnalyzer = new CallSiteArgumentAnalyzer(context);
     }
 
     public void summarize() {
@@ -53,8 +52,7 @@ public class Summarizer {
                     continue;
                 }
                 if (call.getAllArgValues() == null) {
-                    MethodNode node = nodeCache.getMethodNode(caller);
-                    if (node == null || !CallSiteArgumentAnalyzer.analyze(caller, node)) {
+                    if (!callSiteArgumentAnalyzer.analyze(caller)) {
                         continue;
                     }
                 }

@@ -35,6 +35,7 @@ public class ReferenceAnalyzer {
         return new ClassNode(ASM8) {
             private boolean isAnnotation;
             private String clazz;
+            private ClassSource classSource;
             @Override
             public void visit(int version,
                   int access,
@@ -43,6 +44,7 @@ public class ReferenceAnalyzer {
                   String superName,
                   String[] interfaces) {
                 this.clazz = name;
+                this.classSource = source;
                 isAnnotation = (access & ACC_ANNOTATION) != 0;
                 context.addClassToJarMapping(clazz, source);
                 context.addSuperClass(clazz, superName);
@@ -88,7 +90,7 @@ public class ReferenceAnalyzer {
                 }
                 for (MethodNode mn : (List<MethodNode>) methods) {
                     try {
-                        processMethod(clazz, mn, info, context);
+                        processMethod(clazz, mn, info, context, classSource);
                     } catch (AnalyzerException e) {
                         System.out.println("AnalyzerException caught when processing method " + cinfo.name() + " " + mn.name + " " + mn.desc);
                     }
@@ -113,7 +115,7 @@ public class ReferenceAnalyzer {
         };
     }
 
-    private static void processMethod(String owner, MethodNode mn, ReferenceInfo info, HierarchyContext context) throws AnalyzerException {
+    private static void processMethod(String owner, MethodNode mn, ReferenceInfo info, HierarchyContext context, ClassSource classSource) throws AnalyzerException {
         ClassInfo cinfo = info.getClassInfo(owner);
         MethodInfo minfo = cinfo.addMethod(mn.name, mn.desc);
         for (Type t : Type.getArgumentTypes(mn.desc)) {
@@ -191,7 +193,7 @@ public class ReferenceAnalyzer {
                             }
                             info.addReflectionCaller(minfo);
                         }
-                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.STATIC, i);
+                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.STATIC, i, classSource);
 
                     } else if (insn.getOpcode() == INVOKEVIRTUAL) {
                         String name = m.name;
@@ -255,7 +257,7 @@ public class ReferenceAnalyzer {
                                 }
                             }
                         }
-                        minfo.addCallSite(clazz, name, desc, kind, i);
+                        minfo.addCallSite(clazz, name, desc, kind, i, classSource);
 
                     } else if (insn.getOpcode() == INVOKEINTERFACE) {
                         String clazz = m.owner;
@@ -273,9 +275,9 @@ public class ReferenceAnalyzer {
                                 kind = CallKind.FIXED;
                             }
                         }
-                        minfo.addCallSite(clazz, m.name, m.desc, kind, i);
+                        minfo.addCallSite(clazz, m.name, m.desc, kind, i, classSource);
                     } else {
-                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.SPECIAL, i);
+                        minfo.addCallSite(m.owner, m.name, m.desc, CallKind.SPECIAL, i, classSource);
                     }
                     /*if (m.owner.startsWith("java/awt") || m.owner.startsWith("javax/swing")) {
                         System.out.println("@^@ " + m.owner + " from typeinsnnode in " + owner + "." + mn.name + mn.desc);
@@ -326,7 +328,7 @@ public class ReferenceAnalyzer {
                             minfo.addReferencedClass(hBSM.getOwner());
                             minfo.addInstantiatedClass(hBSM.getOwner());
                         }
-                        minfo.addCallSite(hBSM.getOwner(), hBSM.getName(), hBSM.getDesc(), CallKind.DYNAMIC, i);
+                        minfo.addCallSite(hBSM.getOwner(), hBSM.getName(), hBSM.getDesc(), CallKind.DYNAMIC, i, classSource);
                     } else {
                         System.out.println("indy name " + indy.name + " desc " + indy.desc);
                         System.out.println("  handle " + h.getOwner() + " " + h.getName() + " " + h.getDesc());
