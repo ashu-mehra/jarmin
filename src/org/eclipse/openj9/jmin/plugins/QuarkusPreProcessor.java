@@ -21,7 +21,7 @@ public class QuarkusPreProcessor extends PreProcessor {
     public void process() {
         for (String i : interfaces) {
             for (String c : context.getInterfaceImplementors(i)) {
-                worklist.instantiateClass(c);
+                worklist.forceInstantiateClass(c);
                 for (MethodInfo mi : info.getClassInfo(c).getMethodsByNameOnly("<init>")) {
                     worklist.processMethod(c, mi.name(), mi.desc());
                 }

@@ -16,7 +16,7 @@ public class OsgiPreProcessor extends PreProcessor {
         Set<String> implementors = context.getInterfaceImplementors("org/osgi/framework/BundleActivator");
         if (implementors.size() > 0) {
             for (String opt : implementors) {
-                worklist.instantiateClass(opt);
+                worklist.forceInstantiateClass(opt);
             }
             worklist.processInterfaceMethod("org/osgi/framework/BundleActivator", "start", "(Lorg/osgi/framework/BundleContext;)V");
             worklist.processInterfaceMethod("org/osgi/framework/BundleActivator", "stop", "(Lorg/osgi/framework/BundleContext;)V");

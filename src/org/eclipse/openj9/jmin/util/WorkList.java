@@ -67,6 +67,18 @@ public class WorkList {
         }
     }
 
+    public void forceInstantiateClass(String clazz) {
+        instantiateClass(clazz);
+        ClassInfo cinfo = info.getClassInfo(clazz);
+        if (cinfo != null) {
+            /* Mark all constructors as referenced and add them to worklist */
+            for (MethodInfo mi : cinfo.getMethodsByNameOnly("<init>")) {
+                cinfo.markMethodReferenced(mi.name(), mi.desc());
+                worklist.add(new WorkItem(clazz, mi.name(), mi.desc()));
+            }
+        }
+    }
+
     public void instantiateClass(String clazz) {
         processClass(clazz);
         if (!info.isClassInstantiated(clazz)) {
@@ -76,12 +88,6 @@ public class WorkList {
             }
             cinfo = info.getClassInfo(clazz);
             cinfo.setInstantiated();
-
-            /* Mark all constructors as referenced and add them to worklist */
-            for (MethodInfo mi : cinfo.getMethodsByNameOnly("<init>")) {
-                cinfo.markMethodReferenced(mi.name(), mi.desc());
-                worklist.add(new WorkItem(clazz, mi.name(), mi.desc()));
-            }
 
             List<String> superClazzes = context.getSuperClasses(clazz);
             if (superClazzes != null && superClazzes.size() > 0) {

@@ -15,6 +15,6 @@ public class EclipseJettyPreProcessor extends PreProcessor {
          * something like
          *  Loader.loadClass(Properties.getProperties("org.eclipse.jetty.util.log.class", "org.eclipse.jetty.util.log.Slf4jLog");
          */
-        worklist.instantiateClass("org/eclipse/jetty/util/log/Slf4jLog");
+        worklist.forceInstantiateClass("org/eclipse/jetty/util/log/Slf4jLog");
     }
 }

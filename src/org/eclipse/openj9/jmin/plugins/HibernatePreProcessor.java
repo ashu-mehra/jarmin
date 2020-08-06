@@ -14,7 +14,7 @@ public class HibernatePreProcessor extends PreProcessor {
     }
     public void process() {
         for (String svc : context.getInterfaceImplementors("org/hibernate/service/Service")) {
-            worklist.instantiateClass(svc);
+            worklist.forceInstantiateClass(svc);
             for (MethodInfo mi : info.getClassInfo(svc).getMethodsByNameOnly("<init>")) {
                 worklist.processMethod(svc, "<init>", mi.desc());
             }
@@ -23,7 +23,7 @@ public class HibernatePreProcessor extends PreProcessor {
             Set<String> implementors = context.getInterfaceImplementors("org/hibernate/service/spi/Startable");
             if (implementors.size() > 0) {
                 for (String i : implementors) {
-                    worklist.instantiateClass(i);
+                    worklist.forceInstantiateClass(i);
                 }
                 worklist.processInterfaceMethod("org/hibernate/service/spi/Startable", "start", "()V");
             }
@@ -32,7 +32,7 @@ public class HibernatePreProcessor extends PreProcessor {
         Set<String> implementors = context.getInterfaceImplementors("org/hibernate/service/spi/Stoppable");
             if (implementors.size() > 0) {
                 for (String i : implementors) {
-                    worklist.instantiateClass(i);
+                    worklist.forceInstantiateClass(i);
                 }
                 worklist.processInterfaceMethod("org/hibernate/service/spi/Stoppable", "stop", "()V");
             }
@@ -47,7 +47,7 @@ public class HibernatePreProcessor extends PreProcessor {
             Set<String> implementors = context.getInterfaceImplementors("org/hibernate/service/spi/Configurable");
             if (implementors.size() > 0) {
                 for (String i : implementors) {
-                    worklist.instantiateClass(i);
+                    worklist.forceInstantiateClass(i);
                 }
                 worklist.processInterfaceMethod("org/hibernate/service/spi/Configurable", "configure", "(Ljava/util/Map;)V");
             }
@@ -57,7 +57,7 @@ public class HibernatePreProcessor extends PreProcessor {
             if (implementors.size() > 0) {
                 worklist.processInterfaceMethod("org/hibernate/boot/registry/StandardServiceInitiator", "initiateService", "(Ljava/util/Map;Lorg/hibernate/service/spi/ServiceRegistryImplementor;)Lorg/hibernate/service/Service;");
                 for (String svcInit : implementors) {
-                    worklist.instantiateClass(svcInit);
+                    worklist.forceInstantiateClass(svcInit);
                     for (MethodInfo mi : info.getClassInfo(svcInit).getMethodsByNameOnly("<init>")) {
                         worklist.processMethod(svcInit, "<init>", mi.desc());
                     }
@@ -70,7 +70,7 @@ public class HibernatePreProcessor extends PreProcessor {
                 worklist.processInterfaceMethod("org/hibernate/persister/spi/PersisterFactory", "createEntityPersister", "(Lorg/hibernate/mapping/PersistentClass;Lorg/hibernate/cache/spi/access/EntityDataAccess;Lorg/hibernate/cache/spi/access/NaturalIdDataAccess;Lorg/hibernate/persister/spi/PersisterCreationContext;)Lorg/hibernate/persister/entity/EntityPersister;");
                 worklist.processInterfaceMethod("org/hibernate/persister/spi/PersisterFactory", "createCollectionPersister", "(Lorg/hibernate/mapping/Collection;Lorg/hibernate/cache/spi/access/CollectionDataAccess;Lorg/hibernate/persister/spi/PersisterCreationContext;)Lorg/hibernate/persister/collection/CollectionPersister;");
                 for (String pf : implementors) {
-                    worklist.instantiateClass(pf);
+                    worklist.forceInstantiateClass(pf);
                     for (MethodInfo mi : info.getClassInfo(pf).getMethodsByNameOnly("<init>")) {
                         worklist.processMethod(pf, "<init>", mi.desc());
                     }
@@ -81,26 +81,17 @@ public class HibernatePreProcessor extends PreProcessor {
             Set<String> implementors = context.getInterfaceImplementors("org/hibernate/id/enhanced/Optimizer");
             if (implementors.size() > 0) {
                 for (String opt : implementors) {
-                    worklist.instantiateClass(opt);
-                    for (MethodInfo mi : info.getClassInfo(opt).getMethodsByNameOnly("<init>")) {
-                        worklist.processMethod(opt, "<init>", mi.desc());
-                    }
+                    worklist.forceInstantiateClass(opt);
                 }
             }
         }
         // reflective creation from constructor in PersisterFactoryImpl
         for (String ef : context.getInterfaceImplementors("org/hibernate/persister/entity/EntityPersister")) {
-            worklist.instantiateClass(ef);
-            for (MethodInfo mi : info.getClassInfo(ef).getMethodsByNameOnly("<init>")) {
-                worklist.processMethod(ef, "<init>", mi.desc());
-            }
+            worklist.forceInstantiateClass(ef);
         }
         if (context.getSubClasses("io/quarkus/runtime/Application") != null) {
             for (String app : context.getSubClasses("io/quarkus/runtime/Application")) {
-                worklist.instantiateClass(app);
-                for (MethodInfo mi : info.getClassInfo(app).getMethodsByNameOnly("<init>")) {
-                    worklist.processMethod(app, "<init>", mi.desc());
-                }
+                worklist.forceInstantiateClass(app);
             }
         }
         //BeanValidationIntegrator - called by reflection
@@ -116,12 +107,12 @@ public class HibernatePreProcessor extends PreProcessor {
         }
         //Reflective instantiation in org/hibernate/tuple/component/ComponentTuplizerFactory.java based on the entityMode - preload all the implementations
         for (String i : context.getInterfaceImplementors("org/hibernate/tuple/Instantiator")) {
-            worklist.instantiateClass(i);
+            worklist.forceInstantiateClass(i);
         }
         // unknown path
-        worklist.instantiateClass("org/hibernate/internal/SessionImpl$LobHelperImpl");
+        worklist.forceInstantiateClass("org/hibernate/internal/SessionImpl$LobHelperImpl");
         // passed by map as hibernate.dialect in init
-        worklist.instantiateClass("io/quarkus/hibernate/orm/runtime/dialect/QuarkusPostgreSQL95Dialect");
+        worklist.forceInstantiateClass("io/quarkus/hibernate/orm/runtime/dialect/QuarkusPostgreSQL95Dialect");
 
         // instantiated on demand via calls to register in org.hibernate.id.factory.interal.DefaultIdentifierGeneratorFactory
         // issue here is that you need interprocedural detection of the classes being instantiated
@@ -141,7 +132,7 @@ public class HibernatePreProcessor extends PreProcessor {
             "org/hibernate/id/enhanced/TableGenerator",
         };
         for (String gen : idGenerators) {
-            worklist.instantiateClass(gen);
+            worklist.forceInstantiateClass(gen);
         }
 
         // instantiated on demand via calls to Class.newInstance in SqlASTFactory
@@ -192,7 +183,7 @@ public class HibernatePreProcessor extends PreProcessor {
             "org/hibernate/hql/internal/ast/tree/UpdateStatement",
         };
         for (String node : sqlASTTreeNodes) {
-            worklist.instantiateClass(node);
+            worklist.forceInstantiateClass(node);
         }
     }
 }

@@ -12,26 +12,26 @@ public class ApacheCXFPreProcessor extends PreProcessor {
     @Override
     public void process() {
         // Classes present in cxf-core.jar:META-INF/cxf/bus-extensions.txt
-        worklist.instantiateClass("org/apache/cxf/bus/managers/PhaseManagerImpl");
-        worklist.instantiateClass("org/apache/cxf/bus/managers/WorkQueueManagerImpl");
-        worklist.instantiateClass("org/apache/cxf/bus/managers/CXFBusLifeCycleManager");
-        worklist.instantiateClass("org/apache/cxf/bus/managers/ServerRegistryImpl");
-        worklist.instantiateClass("org/apache/cxf/bus/managers/EndpointResolverRegistryImpl");
-        worklist.instantiateClass("org/apache/cxf/bus/managers/HeaderManagerImpl");
-        worklist.instantiateClass("org/apache/cxf/service/factory/FactoryBeanListenerManager");
-        worklist.instantiateClass("org/apache/cxf/bus/managers/ServerLifeCycleManagerImpl");
-        worklist.instantiateClass("org/apache/cxf/bus/managers/ClientLifeCycleManagerImpl");
-        worklist.instantiateClass("org/apache/cxf/bus/resource/ResourceManagerImpl");
-        worklist.instantiateClass("org/apache/cxf/catalog/OASISCatalogManager");
+        worklist.forceInstantiateClass("org/apache/cxf/bus/managers/PhaseManagerImpl");
+        worklist.forceInstantiateClass("org/apache/cxf/bus/managers/WorkQueueManagerImpl");
+        worklist.forceInstantiateClass("org/apache/cxf/bus/managers/CXFBusLifeCycleManager");
+        worklist.forceInstantiateClass("org/apache/cxf/bus/managers/ServerRegistryImpl");
+        worklist.forceInstantiateClass("org/apache/cxf/bus/managers/EndpointResolverRegistryImpl");
+        worklist.forceInstantiateClass("org/apache/cxf/bus/managers/HeaderManagerImpl");
+        worklist.forceInstantiateClass("org/apache/cxf/service/factory/FactoryBeanListenerManager");
+        worklist.forceInstantiateClass("org/apache/cxf/bus/managers/ServerLifeCycleManagerImpl");
+        worklist.forceInstantiateClass("org/apache/cxf/bus/managers/ClientLifeCycleManagerImpl");
+        worklist.forceInstantiateClass("org/apache/cxf/bus/resource/ResourceManagerImpl");
+        worklist.forceInstantiateClass("org/apache/cxf/catalog/OASISCatalogManager");
 
         // Classes present in cxf-rt-rs-sse.jar:META-INF/cxf/bus-extensions.txt
-        worklist.instantiateClass("org/apache/cxf/transport/sse/SseProvidersExtension");
+        worklist.forceInstantiateClass("org/apache/cxf/transport/sse/SseProvidersExtension");
 
         // Classes present in cxf-rt-transports-http.jar:META-INF/cxf/bus-extensions.txt
-        worklist.instantiateClass("org/apache/cxf/transport/http/HTTPTransportFactory");
-        worklist.instantiateClass("org/apache/cxf/transport/http/HTTPWSDLExtensionLoader");
-        worklist.instantiateClass("org/apache/cxf/transport/http/policy.HTTPClientAssertionBuilder");
-        worklist.instantiateClass("org/apache/cxf/transport/http/policy.HTTPServerAssertionBuilder");
-        worklist.instantiateClass("org/apache/cxf/transport/http/policy.NoOpPolicyInterceptorProvider");
+        worklist.forceInstantiateClass("org/apache/cxf/transport/http/HTTPTransportFactory");
+        worklist.forceInstantiateClass("org/apache/cxf/transport/http/HTTPWSDLExtensionLoader");
+        worklist.forceInstantiateClass("org/apache/cxf/transport/http/policy/HTTPClientAssertionBuilder");
+        worklist.forceInstantiateClass("org/apache/cxf/transport/http/policy/HTTPServerAssertionBuilder");
+        worklist.forceInstantiateClass("org/apache/cxf/transport/http/policy/NoOpPolicyInterceptorProvider");
     }
 }

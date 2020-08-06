@@ -11,7 +11,7 @@ public class ArjunaPreProcessor extends PreProcessor {
     public void process() {
         // com/arjuna/ats/jta/common/JTAEnvironmentBean - see reflective invocation
         for (String i : context.getInterfaceImplementors("javax/transaction/UserTransaction")) {
-            worklist.instantiateClass(i);
+            worklist.forceInstantiateClass(i);
         }
     }
 }
