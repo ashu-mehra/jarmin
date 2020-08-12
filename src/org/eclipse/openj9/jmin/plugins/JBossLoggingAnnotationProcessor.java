@@ -40,7 +40,7 @@ public class JBossLoggingAnnotationProcessor extends ClassVisitor {
             String search = clazz + "_$";
             for (String c : context.seenClasses()) {
                 if (c.startsWith(search)) {
-                    worklist.instantiateClass(c);
+                    worklist.forceInstantiateClass(c);
                 }
             }
         }

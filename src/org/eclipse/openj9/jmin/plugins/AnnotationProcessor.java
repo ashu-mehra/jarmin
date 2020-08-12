@@ -12,7 +12,6 @@ import org.eclipse.openj9.jmin.util.HierarchyContext;
 import org.eclipse.openj9.jmin.util.WorkList;
 
 public class AnnotationProcessor extends ClassVisitor {
-    private String clazz;
     private boolean matched;
     boolean trace;
     protected String[] classAnnotations;
@@ -22,7 +21,9 @@ public class AnnotationProcessor extends ClassVisitor {
     protected String[] fieldAnnotations;
     protected String[] prefixes;
     protected WorkList worklist;
-    HierarchyContext context;
+    protected String clazz;
+    protected ReferenceInfo info;
+    protected HierarchyContext context;
     public AnnotationProcessor(WorkList worklist, HierarchyContext context, ReferenceInfo info, ClassVisitor next) {
         super(ASM8, next);
         this.worklist = worklist;
@@ -32,6 +33,7 @@ public class AnnotationProcessor extends ClassVisitor {
         this.methodParameterAnnotations = new String[0];
         this.fieldAnnotations = new String[0];
         this.prefixes = new String[0];
+        this.info = info;
         this.context = context;
     }  
     
@@ -74,7 +76,7 @@ public class AnnotationProcessor extends ClassVisitor {
     @Override
     public AnnotationVisitor visitAnnotation(final String desc, final boolean visible) {
         if (matchesAnnotation(desc, classAnnotations)) {
-            worklist.instantiateClass(clazz);
+            worklist.forceInstantiateClass(clazz);
         }
         
         if (cv != null) {
@@ -93,7 +95,7 @@ public class AnnotationProcessor extends ClassVisitor {
         return new FieldVisitor(ASM8, cv != null ? cv.visitField(faccess, fname, fdesc, fsignature, fvalue) : null) {
             public AnnotationVisitor visitAnnotation(final String desc, final boolean visible) {
                 if (matchesAnnotation(desc, fieldAnnotations)) {
-                    worklist.instantiateClass(clazz);
+                    worklist.forceInstantiateClass(clazz);
                     worklist.processField(clazz, fname, fdesc);
                 }
                 if (fv != null) {
@@ -110,7 +112,7 @@ public class AnnotationProcessor extends ClassVisitor {
             @Override
             public AnnotationVisitor visitAnnotation(java.lang.String desc, boolean visible) {
                 if (matchesAnnotation(desc, methodAnnotations)) {
-                    worklist.instantiateClass(clazz);
+                    worklist.forceInstantiateClass(clazz);
                     worklist.processVirtualMethod(clazz, mname, mdesc);
                 }
                 if (mv != null) {
@@ -122,7 +124,7 @@ public class AnnotationProcessor extends ClassVisitor {
             @Override
             public AnnotationVisitor visitParameterAnnotation(final int parameter, final String desc, final boolean visible) {
                 if (matchesAnnotation(desc, methodParameterAnnotations)) {
-                    worklist.instantiateClass(clazz);
+                    worklist.forceInstantiateClass(clazz);
                     worklist.processVirtualMethod(clazz, mname, mdesc);
                 }
                 if (mv != null) {

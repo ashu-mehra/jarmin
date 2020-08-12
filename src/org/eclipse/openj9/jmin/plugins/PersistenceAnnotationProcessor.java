@@ -23,7 +23,7 @@ public class PersistenceAnnotationProcessor extends AnnotationProcessor {
         final String superName,
         final String[] interfaces) {
         if (context.getInterfaceImplementors("org/hibernate/dialect/lock/LockingStrategy").contains(name)) {
-            worklist.instantiateClass(name);
+            worklist.forceInstantiateClass(name);
             worklist.processMethod(name, "lock", "(Ljava/io/Serializable;Ljava/lang/Object;Ljava/lang/Object;ILorg/hibernate/engine/spi/SharedSessionContractImplementor;)V");
         }
         super.visit(version,access,name,signature,superName, interfaces);

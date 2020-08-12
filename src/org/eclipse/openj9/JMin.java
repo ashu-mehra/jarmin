@@ -74,7 +74,10 @@ public class JMin {
         org.eclipse.openj9.jmin.plugins.QuarkusPreProcessor.class,
         org.eclipse.openj9.jmin.plugins.CaffeinePreProcessor.class,
         org.eclipse.openj9.jmin.plugins.HibernatePreProcessor.class,
-        org.eclipse.openj9.jmin.plugins.ArjunaPreProcessor.class
+        org.eclipse.openj9.jmin.plugins.ArjunaPreProcessor.class,
+        org.eclipse.openj9.jmin.plugins.OsgiPreProcessor.class,
+        org.eclipse.openj9.jmin.plugins.EclipseJettyPreProcessor.class,
+        org.eclipse.openj9.jmin.plugins.ApacheCXFPreProcessor.class
     };
 
     private static Class<?>[] processorClasses = new Class<?>[] {
@@ -83,6 +86,7 @@ public class JMin {
         org.eclipse.openj9.jmin.plugins.HibernateProcessor.class,
         org.eclipse.openj9.jmin.plugins.JBossLoggingAnnotationProcessor.class,
         org.eclipse.openj9.jmin.plugins.MBeanProcessor.class,
+        org.eclipse.openj9.jmin.plugins.OsgiAnnotationProcessor.class,
         org.eclipse.openj9.jmin.plugins.PersistenceAnnotationProcessor.class,
         org.eclipse.openj9.jmin.plugins.QuarkusAnnotationProcessor.class,
         org.eclipse.openj9.jmin.plugins.RuntimeAnnotationProcessor.class

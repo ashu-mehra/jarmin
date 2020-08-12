@@ -12,18 +12,12 @@ public class CaffeinePreProcessor extends PreProcessor {
     public void process() {
         if (context.getSubClasses("com/github/benmanes/caffeine/cache/Node") != null) {
             for (String clazz : context.getSubClasses("com/github/benmanes/caffeine/cache/Node")) {
-                worklist.instantiateClass(clazz);
-                for (MethodInfo mi : info.getClassInfo(clazz).getMethodsByNameOnly("<init>")) {
-                    worklist.processMethod(clazz, "<init>", mi.desc());
-                }
+                worklist.forceInstantiateClass(clazz);
             }
         }
         if (context.getSubClasses("com/github/benmanes/caffeine/cache/BoundedLocalCache") != null) {
             for (String clazz : context.getSubClasses("com/github/benmanes/caffeine/cache/BoundedLocalCache")) {
-                worklist.instantiateClass(clazz);
-                for (MethodInfo mi : info.getClassInfo(clazz).getMethodsByNameOnly("<init>")) {
-                    worklist.processMethod(clazz, "<init>", mi.desc());
-                }
+                worklist.forceInstantiateClass(clazz);
             }
         }
     }

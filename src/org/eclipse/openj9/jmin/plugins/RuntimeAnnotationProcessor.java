@@ -39,7 +39,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
     public AnnotationVisitor visitAnnotation(final String descriptor, final boolean visible) {
         String annotClazz = descriptor.substring(1, descriptor.length() - 2);
         if (context.hasRuntimeAnnotation(annotClazz)) {
-            worklist.instantiateClass(annotClazz);
+            worklist.forceInstantiateClass(annotClazz);
         }
         if (cv != null) {
             return cv.visitAnnotation(descriptor, visible);
@@ -51,7 +51,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
     public AnnotationVisitor visitTypeAnnotation(final int typeRef, final TypePath typePath, final String descriptor, final boolean visible) {
         String annotClazz = descriptor.substring(1, descriptor.length() - 1);
         if (context.hasRuntimeAnnotation(annotClazz)) {
-            worklist.instantiateClass(annotClazz);
+            worklist.forceInstantiateClass(annotClazz);
         }
         if (cv != null) {
         return cv.visitTypeAnnotation(typeRef, typePath, descriptor, visible);
@@ -71,7 +71,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
             public AnnotationVisitor visitAnnotation(final String descriptor, final boolean visible) {
                 String annotClazz = descriptor.substring(1, descriptor.length() - 1);
                 if (context.hasRuntimeAnnotation(annotClazz)) {
-                    worklist.instantiateClass(annotClazz);
+                    worklist.forceInstantiateClass(annotClazz);
                 }
                 if (fv != null) {
                     return fv.visitAnnotation(descriptor, visible);
@@ -82,7 +82,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
             public AnnotationVisitor visitTypeAnnotation(final int typeRef, final TypePath typePath, final String descriptor, final boolean visible) {
                 String annotClazz = descriptor.substring(1, descriptor.length() - 1);
                 if (context.hasRuntimeAnnotation(annotClazz)) {
-                    worklist.instantiateClass(annotClazz);
+                    worklist.forceInstantiateClass(annotClazz);
                 }
                 if (fv != null) {
                     return fv.visitTypeAnnotation(typeRef, typePath, descriptor, visible);
@@ -104,7 +104,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
             public AnnotationVisitor visitAnnotation(final String descriptor, final boolean visible) {
                 String annotClazz = descriptor.substring(1, descriptor.length() - 1);
                 if (context.hasRuntimeAnnotation(annotClazz)) {
-                    worklist.instantiateClass(annotClazz);
+                    worklist.forceInstantiateClass(annotClazz);
                 }
                 if (mv != null) {
                     return mv.visitAnnotation(descriptor, visible);
@@ -116,7 +116,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
             public AnnotationVisitor visitTypeAnnotation(final int typeRef, final TypePath typePath, final String descriptor, final boolean visible) {
                 String annotClazz = descriptor.substring(1, descriptor.length() - 1);
                 if (context.hasRuntimeAnnotation(annotClazz)) {
-                    worklist.instantiateClass(annotClazz);
+                    worklist.forceInstantiateClass(annotClazz);
                 }
                 if (mv != null) {
                   return mv.visitTypeAnnotation(typeRef, typePath, descriptor, visible);
@@ -128,7 +128,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
             public AnnotationVisitor visitParameterAnnotation(final int parameter, final String descriptor, final boolean visible) {
                 String annotClazz = descriptor.substring(1, descriptor.length() - 1);
                 if (context.hasRuntimeAnnotation(annotClazz)) {
-                    worklist.instantiateClass(annotClazz);
+                    worklist.forceInstantiateClass(annotClazz);
                 }
                 if (mv != null) {
                     return mv.visitParameterAnnotation(parameter, descriptor, visible);
@@ -140,7 +140,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
             public AnnotationVisitor visitInsnAnnotation(final int typeRef, final TypePath typePath, final String descriptor, final boolean visible) {
                 String annotClazz = descriptor.substring(1, descriptor.length() - 1);
                 if (context.hasRuntimeAnnotation(annotClazz)) {
-                    worklist.instantiateClass(annotClazz);
+                    worklist.forceInstantiateClass(annotClazz);
                 }
                 if (mv != null) {
                     return mv.visitInsnAnnotation(typeRef, typePath, descriptor, visible);
@@ -152,7 +152,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
             public AnnotationVisitor visitTryCatchAnnotation(final int typeRef, final TypePath typePath, final String descriptor, final boolean visible) {
                 String annotClazz = descriptor.substring(1, descriptor.length() - 1);
                 if (context.hasRuntimeAnnotation(annotClazz)) {
-                    worklist.instantiateClass(annotClazz);
+                    worklist.forceInstantiateClass(annotClazz);
                 }
                 if (mv != null) {
                     return mv.visitTryCatchAnnotation(typeRef, typePath, descriptor, visible);
@@ -171,7 +171,7 @@ public class RuntimeAnnotationProcessor extends ClassVisitor {
                 final boolean visible) {
                 String annotClazz = descriptor.substring(1, descriptor.length() - 1);
                 if (context.hasRuntimeAnnotation(annotClazz)) {
-                    worklist.instantiateClass(annotClazz);
+                    worklist.forceInstantiateClass(annotClazz);
                 }
                 if (mv != null) {
                 return mv.visitLocalVariableAnnotation(
