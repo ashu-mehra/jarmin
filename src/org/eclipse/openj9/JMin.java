@@ -213,19 +213,47 @@ public class JMin {
         jout.closeEntry();
     }
 
-    public void generateMethodList() throws IOException {
+    public void generateMethodList(HashSet<String> orderList) throws IOException {
         System.out.println("Generating method list");
+        HashSet<String> referencedMethods = new HashSet<>();
+        ArrayList<String> referencedOrderedMethods = new ArrayList<>();
+        List<String> finalList = null;
         BufferedWriter writer = new BufferedWriter(new FileWriter("/tmp/jarmin_methods.log"));
+
         for (String clazz : context.seenClasses()) {
             if (info.isClassReferenced(clazz)) {
                 HashSet<MethodInfo> methods = info.getClassInfo(clazz).getMethods();
                 for (MethodInfo minfo: methods) {
                     if ((Config.reductionMode == Config.REDUCTION_MODE_CLASS) || minfo.referenced()) {
-                        writer.write(clazz + " " + minfo.name() + " " + minfo.desc() + "\n");
+                        referencedMethods.add(clazz + "." + minfo.name() + minfo.desc());
                     }
                 }
             }
         }
+
+        if (orderList != null) {
+            for (String m : orderList) {
+                if (referencedMethods.contains(m)) {
+                    referencedOrderedMethods.add(m);
+                }
+            }
+            for (String m: referencedMethods) {
+                if (!referencedOrderedMethods.contains(m)) {
+                    referencedOrderedMethods.add(m);
+                }
+            }
+            finalList = referencedOrderedMethods;
+        } else {
+            finalList = new ArrayList<String>(referencedMethods);
+        }
+
+        for (String m : finalList) {
+            String[] parts = m.trim().split("\\.");
+            String methodName = parts[1].substring(0, parts[1].indexOf("("));
+            String methodSig = parts[1].substring(parts[1].indexOf("("));
+            writer.write(parts[0] + " " + methodName + " " + methodSig + "\n");
+        }
+
         if (writer != null) {
             writer.close();
         }
@@ -470,7 +498,7 @@ public class JMin {
    }
 
     public static void main(String[] args) throws IOException {
-        boolean argsValid = (args.length == 4 || args.length == 2);
+        boolean argsValid = (args.length == 4 || args.length == 2 || args.length == 3);
         argsValid &= Config.validateProperties();
         if (!argsValid) {
             showUsage();
@@ -508,7 +536,8 @@ public class JMin {
         }
 
         List<MethodInfo> startList = new ArrayList();
-        if (args.length == 2) {
+        LinkedHashSet<String> orderList = null;
+        if (args.length == 2 || args.length == 3) {
             /* args[1] should be a file containing list of methods to use as root set */
             BufferedReader br = new BufferedReader(new FileReader(args[1]));
             String entry = br.readLine();
@@ -516,6 +545,17 @@ public class JMin {
                 String[] parts = entry.trim().split(" ");
                 startList.add(new MethodInfo(parts[0], parts[1], parts[2]));
                 entry = br.readLine();
+            }
+            br.close();
+            if (args.length == 3) {
+                orderList = new LinkedHashSet<>();
+                /* args[1] should be a file that controls the order of generated method list  */
+                br = new BufferedReader(new FileReader(args[2]));
+                entry = br.readLine();
+                while (entry != null) {
+                    orderList.add(entry);
+                    entry = br.readLine();
+                }
             }
         } else {
             /* only single method is specified as the entry point */
@@ -528,7 +568,7 @@ public class JMin {
         //jmin.dumpInfo();
         System.out.println("done");
 
-        jmin.generateMethodList();
+        jmin.generateMethodList(orderList);
 
         String generateJars = System.getProperty(GEN_MINIMIZED_JARS_ENABLED);
         if (generateJars == null) {
